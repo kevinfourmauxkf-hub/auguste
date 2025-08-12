@@ -4,17 +4,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Le Dernier Secret d’Auguste Le Du</title>
+  <title>Auguste — Fix Step 4</title>
   <link rel="stylesheet" href="style.css" />
-  <meta name="theme-color" content="#d9c79a" />
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <div class="header">
-        <img src="assets/seal.png" alt="Sceau Auguste Le Du" />
+        <img src="assets/seal.png" alt="Sceau" />
         <div>
-          <h1>Le Dernier Secret d’Auguste Le Du</h1>
+          <h1>Auguste — Démo correctif Étape 4</h1>
           <div id="step" class="step">Étape</div>
         </div>
       </div>
@@ -28,34 +27,16 @@
         <button id="codeBtn">Valider</button>
       </div>
 
-      <div class="crosswrap"></div>
-      <div class="cipher"></div>
-
-      <div class="tools">
-        <button id="scanBtn">📷 Scanner un QR (caméra)</button>
-        <button id="uploadBtn">🖼️ Scanner depuis une photo</button>
-        <button id="resetBtn" class="small">↺ Réinitialiser la progression</button>
-      </div>
-
-      <div class="videoWrap">
-        <video id="video" playsinline></video>
-        <div class="scanHint">Visez le QR…</div>
-        <button id="stopBtn" class="small" style="margin-top:8px">Arrêter la caméra</button>
-      </div>
-
-      <div class="uploadWrap">
-        <div class="small">Choisissez une photo nette du QR. Astuce : faites un gros plan bien éclairé.</div>
-        <input id="fileInput" type="file" accept="image/*" />
-      </div>
+      <p id="post"></p>
 
       <div class="footer">
-        <span class="small">Scannez les QR dans l’ordre. La progression est mémorisée sur cet appareil.</span>
-        <span class="small">© Auguste Le Du — 1921</span>
+        <span class="small">Test du verrou sur l’étape 4 (code 1024 requis).</span>
       </div>
     </div>
   </div>
   <script>
-    const STEP_TEXTS = {"1": "« Bien le bonjour, étranger curieux !\nSi tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\n\nSache que j’ai laissé derrière moi un trésor… ou peut-être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\n\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage.\n\nMais attention… ce n’est pas la pierre qui roule qui amasse la mousse. »", "2": "« Elle a nourri plus de ventres que le curé n’a donné de sermons !\nRegarde-la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls…\nCherche à voir autrement, comme la chouette qui chasse sous la lune. »", "3": "« Ah, la vieille marmite… Combien de repas, combien de secrets aussi…\nLa doyenne du hameau y avait même perdu son dentier. On ne l’a jamais retrouvé, et si tu croques dedans, tu comprendras pourquoi on a arrêté la soupe.\n\nÀ présent, cherche l’endroit où la vie commence… protégée par une coquille. »", "4": "« Mes dames à plumes n’aiment pas les inconnus, alors ne traîne pas trop.\nLes couleurs te parlent, mais pas comme à l’arc-en-ciel.\nCompte-les… multiplie-les… et ajoute mille.\n\nLe chiffre final ouvrira ta prochaine porte. »", "5": "« Ah… tu as trouvé ma source secrète, oubliée de beaucoup.\nÀ présent, fais l’inverse : cherche un endroit sec… où les calories dorment à l’abri de la pluie. »", "6": "« L’odeur du bois sec… presque aussi bonne que celle du pain chaud.\nRemplis la grille, et observe les lettres qui se tiennent bien droites : elles te révéleront un objet que j’ai toujours gardé près de moi.\n\nEnsuite… trouve cet objet. »", "7": "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse.\nDécrypte la phrase codée et tu découvriras le nom du jeu où les pierres sont reines.\nSi tu échoues… César te jettera aux lions. »", "8": "« Assieds-toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable.\nDerrière mon trône, tu as trouvé un morceau de vérité… et une énigme qui te fera lever les yeux… et peut-être les pieds. »", "9": "« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise…\n\nDerrière, ton destin t’attend. »", "10": "« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a-t-il cuits en silence ?\nCherche à gauche de l’entrée un petit recoin, là où nul cadenas ne ferme la voie.\n\nDans ses entrailles froides, une pierre pas comme les autres… Ce que tu trouveras ouvrira le dernier secret. »", "11": "« Bravo ! Tu as trouvé l’emplacement du trésor.\n\nPour compliquer la tâche aux suivants, laisse à cet endroit un indice différent…\nPuis cache l’emplacement du trésor ailleurs, avec ce carnet et un crayon, pour que le prochain fasse de même. »\n\n(Texte à imprimer et poser à côté du QR :\nSi tu lis ces lignes, c’est que tu es bien près… ou peut-être trop tard.\nScanne le QR code final pour obtenir l’emplacement du trésor.\nEt si ce QR code n’est plus là… c’est qu’un autre t’a devancé.\nÀ partir de maintenant… je ne suis plus maître de cette aventure.)", "12": "« Bravo ! Tu as trouvé l’emplacement du trésor.\nMarque ta victoire… et prépare le terrain pour le prochain aventurier. »"};
+    const STEP_TEXTS_PRE = {"1": "Texte étape 1 (pré).", "2": "Texte étape 2 (pré).", "3": "Texte étape 3 (pré).", "4": "« Mes dames à plumes n’aiment pas les inconnus, alors ne traîne pas trop.\nLes couleurs te parlent, mais pas comme à l’arc-en-ciel.\nCompte-les… multiplie-les… et ajoute mille.\n\nLe chiffre final ouvrira ta prochaine porte. »", "5": "Texte étape 5 (pré)."};
+    const STEP_TEXTS_POST = {"4": "Bravo, tu as trouvé !\nÉcoute-moi bien maintenant : là où l’eau danse et chante encore, même par les plus grandes chaleurs, tu trouveras ce que tu cherches.\n\nIci, les secrets flottent comme les feuilles à l’automne… Tire sur la corde, mais pas trop fort : j’ai déjà perdu deux seaux comme ça."};
   </script>
   <script src="app.js"></script>
 </body>
