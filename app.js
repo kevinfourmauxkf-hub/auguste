@@ -1,7 +1,7 @@
 
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-12-v4-cesar';
+const VERSION = '2025-08-12-v5-stonefx';
 const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider cette étape :" } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){
@@ -21,6 +21,13 @@ function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('au
 function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
 
 async function startScanner(){
+  const step = getStepFromURL();
+  const progress = getProgress();
+  // extra hard lock: at step 9 page, require progress===8 to start scanner
+  if(step===9 && progress<8){
+    alert("Tu dois d’abord valider l’étape 8 (décryptage) avant de pouvoir scanner la suivante.");
+    return;
+  }
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){
@@ -132,7 +139,6 @@ function buildCrossword(container){
       }
       if(row !== target[r]){ alert("Pas encore bon. Indice : ferme, champ, lavoir, charrette, botanique."); return; }
     }
-    // highlight column 3 (index 2) for CANNE
     for(let r=0;r<CW_SIZE;r++){
       for(let c=0;c<CW_SIZE;c++){
         const cell = grid.children[r*CW_SIZE+c];
@@ -155,13 +161,12 @@ function setupCaesar(container){
   container.appendChild(cipher);
   const inp = document.createElement('input');
   inp.type = 'text';
-  inp.placeholder = "Ta phrase déchiffrée (ex : ... OF ... )";
+  inp.placeholder = "Ta phrase déchiffrée";
   container.appendChild(inp);
   const btn = document.createElement('button');
   btn.textContent = "Valider le décryptage";
   btn.onclick = ()=>{
     let v = (inp.value||'').toUpperCase().replace(/\s+/g,' ').trim();
-    // Accept "GAME OF STONES" exactly (allow multiple spaces collapsed)
     if(v === 'GAME OF STONES'){
       playItem();
       alert("✅ Décryptage correct. Étape validée !");
@@ -171,6 +176,17 @@ function setupCaesar(container){
     }
   };
   container.appendChild(btn);
+}
+
+function spawnSparkles(el){
+  for(let i=0;i<6;i++){
+    const s = document.createElement('span');
+    s.className = 'spark';
+    s.style.left = (Math.random()*40)+'px';
+    s.style.top = (-Math.random()*6)+'px';
+    s.style.animationDelay = (Math.random()*0.8)+'s';
+    el.appendChild(s);
+  }
 }
 
 function render(){
@@ -216,6 +232,16 @@ function render(){
     }else if(step === 8){
       cz.style.display='block';
       setupCaesar(cz);
+    }else if(step === 11){
+      // sparkle effect
+      const span = document.createElement('span');
+      span.className = 'stoneFX';
+      span.textContent = 'pierre pas comme les autres';
+      story.appendChild(document.createTextNode('\n\n→ Repère la '));
+      story.appendChild(span);
+      story.appendChild(document.createTextNode('…'));
+      spawnSparkles(span);
+      setProgress(11);
     }else{
       setProgress(step);
     }
