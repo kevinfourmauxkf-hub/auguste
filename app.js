@@ -21,7 +21,7 @@ async function startScanner(){
   const stopBtn = document.getElementById('stopBtn');
   const detectorSupported = ('BarcodeDetector' in window);
   if(!detectorSupported){
-    alert("Le scanner intégré n'est pas pris en charge par ce navigateur. Essayez le mode 'Scanner depuis une photo', ou utilisez la caméra native.");
+    alert("Le scanner intégré n'est pas pris en charge par ce navigateur. Essayez 'Scanner depuis une photo' ci-dessous, ou la caméra native.");
     document.querySelector('.uploadWrap').style.display = 'block';
     return;
   }
@@ -113,15 +113,32 @@ function render(){
   const lock = document.getElementById('lock');
 
   stepEl.textContent = 'Étape ' + step + ' / ' + TOTAL_STEPS;
-  story.textContent = window.STEP_TEXTS[step] || '...';
 
-  // STRICT : visible si précédent validé, sinon blocage
-  if(step === 1 || progress >= (step-1)){
+  // STRIC T LOCK: 
+  // - Étape 1 toujours OK (et enregistre progress=1)
+  // - Étapes suivantes: affichées uniquement si step <= progress (revoir) ou si step == progress+1
+  // - On enregistre l'étape uniquement si step == progress+1 (validation par scan)
+  if(step === 1){
     lock.style.display = 'none';
-    // Marquer automatiquement cette étape comme validée
-    setProgress(step);
+    story.textContent = window.STEP_TEXTS[1] || '...';
+    if(progress < 1) setProgress(1); // première validation
   }else{
-    lock.style.display = 'block';
+    if(step <= progress){
+      // revisite autorisée (déjà validée)
+      lock.style.display = 'none';
+      story.textContent = window.STEP_TEXTS[step] || '...';
+    }else if(step === progress + 1){
+      // c'est exactement la prochaine étape attendue : autoriser + valider
+      lock.style.display = 'none';
+      story.textContent = window.STEP_TEXTS[step] || '...';
+      setProgress(step);
+    }else{
+      lock.style.display = 'block';
+      story.textContent = "";
+      // Indiquer quelle étape est attendue
+      const need = progress + 1;
+      lock.textContent = "Pas encore prêt… Scanne d’abord l’étape " + need + ".";
+    }
   }
 
   document.getElementById('scanBtn').onclick = startScanner;
