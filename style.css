@@ -29,3 +29,10 @@ padding:6px 10px;border-radius:8px;font-size:16px}
 .codegate{margin-top:12px;display:none;background:#fff4d4;border:1px solid #e6d6b0;border-radius:12px;padding:12px}
 .codegate input{padding:10px;font-size:16px;border-radius:10px;border:1px solid #bba37c;width:200px}
 .codegate button{margin-left:8px}
+/* Crossword */
+.cw{margin-top:14px;display:none}
+.grid{display:grid;grid-template-columns:repeat(5,44px);gap:6px;margin-top:8px}
+.grid input{width:44px;height:44px;text-align:center;font-size:20px;border-radius:8px;border:1px solid #bba37c;background:#fffaf0}
+.grid input.ok{background:#e8f7df;border-color:#8dc27a}
+.grid input.hl{background:#ffeaa7;border-color:#e0b359}
+.clues{margin-top:10px;font-size:16px;color:#4a3a24}
