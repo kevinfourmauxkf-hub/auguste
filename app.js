@@ -1,7 +1,7 @@
 
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider l'étape 4 :" } };
+const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider cette étape :" } };
 
 function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
@@ -67,36 +67,31 @@ function render(){
   const step = getStepFromURL();
   const progress = getProgress();
   qs('#step').textContent = 'Étape '+step+' / '+TOTAL_STEPS;
+
   const story = qs('#story'); const lock = qs('#lock');
   const gateWrap = qs('.codegate'); const gateMsg=qs('#codeMsg'); const gateInput=qs('#codeInput'); const gateBtn=qs('#codeBtn');
-  const postMsg = qs('#postMsg');
-  gateWrap.style.display='none'; postMsg.style.display='none'; lock.style.display='none';
-  story.textContent = '';
+  gateWrap.style.display='none'; lock.style.display='none'; story.textContent='';
 
   if(step === 1){
-    story.textContent = window.STEP_TEXTS[1] || '';
+    story.textContent = window.TEXTS[1] || '';
     if(progress < 1) setProgress(1);
   }else{
     if(step > progress + 1){
       lock.style.display='block'; lock.textContent = "Pas encore prêt… Scanne d’abord l’étape " + (progress+1) + "."; return;
     }
     if(step <= progress){
-      story.textContent = window.STEP_TEXTS[step] || '';
-      if(step === 4){ postMsg.style.display='block'; postMsg.textContent = window.STEP4_POST; }
-      return;
+      story.textContent = window.TEXTS[step] || ''; return;
     }
     // expected next
-    story.textContent = window.STEP_TEXTS[step] || '';
+    story.textContent = window.TEXTS[step] || '';
     if(step === 4){
-      gateWrap.style.display='block'; gateMsg.textContent = "Entrez le code pour valider l'étape 4 :";
-      gateInput.value='';
+      gateWrap.style.display='block'; gateMsg.textContent = CODE_GATES[4].prompt; gateInput.value='';
       gateBtn.onclick = ()=>{
         const v = (gateInput.value||'').trim();
-        if(v === '1024'){
+        if(v === CODE_GATES[4].value){
           setProgress(4);
           gateWrap.style.display='none';
-          postMsg.style.display='block'; postMsg.textContent = window.STEP4_POST;
-          // Scanner toujours dispo : les boutons restent actifs
+          alert("✅ Étape validée. Tu peux maintenant scanner la suivante.");
         }else{
           alert('Mauvais code.');
         }
