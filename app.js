@@ -3,31 +3,32 @@ const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
 const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider l'étape 4 :" } };
 
-function qs(sel){ return document.querySelector(sel); }
+function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
 function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1'; }
 
-function startScanner(){
+async function startScanner(){
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){ alert("Scanner intégré indisponible. Utilisez 'Scanner depuis une photo' ou la caméra native."); qs('.uploadWrap').style.display='block'; return; }
-  const detector = new BarcodeDetector({ formats: ['qr_code'] });
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-    video.srcObject = stream; return video.play().then(()=>{
-      videoWrap.style.display='block'; scanBtn.disabled=true; stopBtn.disabled=false;
-      const loop = async()=>{
-        try{
-          const codes = await detector.detect(video);
-          if(codes && codes.length){ handleScannedURL(codes[0].rawValue); return; }
-        }catch(e){}
-        requestAnimationFrame(loop);
-      };
-      requestAnimationFrame(loop);
-      stopBtn.onclick = ()=>{ stream.getTracks().forEach(t=>t.stop()); videoWrap.style.display='none'; scanBtn.disabled=false; stopBtn.disabled=true; };
-    });
-  }).catch(err=> alert("Impossible d’ouvrir la caméra : "+err.message));
+  const detector = new BarcodeDetector({ formats:['qr_code'] });
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    video.srcObject = stream; await video.play();
+    videoWrap.style.display='block'; scanBtn.disabled=true; stopBtn.disabled=false;
+    let rafId;
+    const tick = async()=>{
+      try{
+        const codes = await detector.detect(video);
+        if(codes && codes.length){ handleScannedURL(codes[0].rawValue); return; }
+      }catch(e){}
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    stopBtn.onclick = ()=>{ cancelAnimationFrame(rafId); stream.getTracks().forEach(t=>t.stop()); videoWrap.style.display='none'; scanBtn.disabled=false; stopBtn.disabled=true; };
+  }catch(err){ alert("Impossible d’ouvrir la caméra : "+err.message); }
 }
 
 function setupUploadScan(){
@@ -72,10 +73,6 @@ function render(){
   gateWrap.style.display='none'; postMsg.style.display='none'; lock.style.display='none';
   story.textContent = '';
 
-  const debug = (new URL(location.href)).searchParams.get('debug')==='1';
-  if(debug){ qs('#debug').textContent = 'DEBUG — progress='+progress+', requested='+step; }
-
-  // gating rules
   if(step === 1){
     story.textContent = window.STEP_TEXTS[1] || '';
     if(progress < 1) setProgress(1);
@@ -83,7 +80,6 @@ function render(){
     if(step > progress + 1){
       lock.style.display='block'; lock.textContent = "Pas encore prêt… Scanne d’abord l’étape " + (progress+1) + "."; return;
     }
-    // revisiting
     if(step <= progress){
       story.textContent = window.STEP_TEXTS[step] || '';
       if(step === 4){ postMsg.style.display='block'; postMsg.textContent = window.STEP4_POST; }
@@ -100,6 +96,7 @@ function render(){
           setProgress(4);
           gateWrap.style.display='none';
           postMsg.style.display='block'; postMsg.textContent = window.STEP4_POST;
+          // Scanner toujours dispo : les boutons restent actifs
         }else{
           alert('Mauvais code.');
         }
