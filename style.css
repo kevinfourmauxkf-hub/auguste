@@ -26,3 +26,15 @@ video{width:100%;border-radius:12px;border:1px solid rgba(0,0,0,.1)}
 padding:6px 10px;border-radius:8px;font-size:18px}
 .uploadWrap{display:none;margin-top:12px;border:1px dashed #8d6a46;border-radius:12px;padding:12px;background:#f6edd2}
 .uploadWrap input{display:block;margin-top:8px}
+.codegate{margin-top:12px;display:none;background:#fff4d4;border:1px solid #e6d6b0;border-radius:12px;padding:12px}
+.codegate input{padding:10px;font-size:18px;border-radius:10px;border:1px solid #bba37c;width:220px}
+.codegate button{margin-left:8px}
+.success{margin-top:10px;padding:10px;border:1px solid #9ac27b;background:#eef8e7;border-radius:10px;color:#2d5d1a}
+.crosswrap{margin-top:12px;display:none}
+.grid{display:grid;grid-template-columns:repeat(5,44px);gap:6px}
+.cell{width:44px;height:44px}
+.cell input{width:44px;height:44px;text-align:center;font-size:22px;border:1px solid #bba37c;border-radius:8px;background:#fffdf5}
+.clues{margin-top:10px}
+.highlight{background: #fff176 !important}
+.cipher{display:none;margin-top:12px}
+.cipher input{padding:10px;font-size:18px;border-radius:10px;border:1px solid #bba37c;width:100%}
