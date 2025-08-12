@@ -4,16 +4,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Auguste — Fix Step 4</title>
+  <title>Le Dernier Secret d’Auguste Le Du</title>
   <link rel="stylesheet" href="style.css" />
+  <meta name="theme-color" content="#d9c79a" />
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <div class="header">
-        <img src="assets/seal.png" alt="Sceau" />
+        <img src="assets/seal.png" alt="Sceau Auguste Le Du" />
         <div>
-          <h1>Auguste — Démo correctif Étape 4</h1>
+          <h1>Le Dernier Secret d’Auguste Le Du</h1>
           <div id="step" class="step">Étape</div>
         </div>
       </div>
@@ -27,16 +28,35 @@
         <button id="codeBtn">Valider</button>
       </div>
 
-      <p id="post"></p>
+      <div id="postMsg" class="postmsg"></div>
+
+      <div class="tools">
+        <button id="scanBtn">📷 Scanner un QR (caméra)</button>
+        <button id="uploadBtn">🖼️ Scanner depuis une photo</button>
+        <button id="resetBtn" class="small">↺ Réinitialiser la progression</button>
+      </div>
+
+      <div class="videoWrap">
+        <video id="video" playsinline></video>
+        <div class="scanHint">Visez le QR…</div>
+        <button id="stopBtn" class="small" style="margin-top:8px">Arrêter la caméra</button>
+      </div>
+
+      <div class="uploadWrap">
+        <div class="small">Choisissez une photo nette du QR. Astuce : faites un gros plan bien éclairé.</div>
+        <input id="fileInput" type="file" accept="image/*" />
+      </div>
 
       <div class="footer">
-        <span class="small">Test du verrou sur l’étape 4 (code 1024 requis).</span>
+        <span class="small">Scannez les QR dans l’ordre. La progression est mémorisée sur cet appareil.</span>
+        <span class="small">© Auguste Le Du — 1921</span>
       </div>
+      <div id="debug" class="debug"></div>
     </div>
   </div>
   <script>
-    const STEP_TEXTS_PRE = {"1": "Texte étape 1 (pré).", "2": "Texte étape 2 (pré).", "3": "Texte étape 3 (pré).", "4": "« Mes dames à plumes n’aiment pas les inconnus, alors ne traîne pas trop.\nLes couleurs te parlent, mais pas comme à l’arc-en-ciel.\nCompte-les… multiplie-les… et ajoute mille.\n\nLe chiffre final ouvrira ta prochaine porte. »", "5": "Texte étape 5 (pré)."};
-    const STEP_TEXTS_POST = {"4": "Bravo, tu as trouvé !\nÉcoute-moi bien maintenant : là où l’eau danse et chante encore, même par les plus grandes chaleurs, tu trouveras ce que tu cherches.\n\nIci, les secrets flottent comme les feuilles à l’automne… Tire sur la corde, mais pas trop fort : j’ai déjà perdu deux seaux comme ça."};
+    window.STEP_TEXTS = {"1": "QR1 – Pierre 1921\n\n« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres…\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\n\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. »", "2": "QR2 – La marmite\n\n« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien… mais cherche à voir autrement, comme la chouette sous la lune. »", "3": "QR3 – Panier d’œufs\n\n« Ah, la vieille marmite… À présent, cherche l’endroit où la vie commence, protégée par une coquille. »", "4": "QR4 – Panier d’œufs → Lavoir (Énigme)\n\n« Mes dames à plumes n’aiment pas les inconnus. Les couleurs te parlent, mais pas comme à l’arc‑en‑ciel.\nCompte‑les… multiplie‑les… et ajoute mille.\n\nLe chiffre final ouvrira ta prochaine porte. »\n\n⤷ Entre le code pour révéler la suite.", "5": "QR5 – Lavoir\n\n(Le message apparaît après validation du code à l’étape 4.)", "6": "QR6 – Abri à bois\n\n« Fais l’inverse : cherche un endroit sec… où les calories dorment à l’abri de la pluie. »", "7": "QR7 – Canne\n\n« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »", "8": "QR8 – Mur de pierre et trône\n\n« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. »", "9": "QR9 – Trampoline\n\n« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… »", "10": "QR10 – Four à pain\n\n« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? »", "11": "QR11 – Emplacement du trésor\n\n(Consignes finales : laisser un autre indice, etc.)", "12": "QR12 – Final\n\n« Bravo ! Marque ta victoire… et prépare le terrain pour le prochain aventurier. »"};
+    window.STEP4_POST = "Bravo, tu as trouvé !\nÉcoute‑moi bien : là où l’eau danse et chante encore, même par les plus grandes chaleurs, tu trouveras ce que tu cherches.\n\nIci, les secrets flottent comme les feuilles à l’automne… Tire sur la corde, mais pas trop fort : j’ai déjà perdu deux seaux comme ça.";
   </script>
   <script src="app.js"></script>
 </body>
