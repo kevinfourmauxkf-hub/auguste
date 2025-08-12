@@ -1,18 +1,18 @@
 
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-12-crossword-v3-sounds';
+const VERSION = '2025-08-12-v4-cesar';
 const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider cette étape :" } };
-// sounds
 let SND_ITEM, SND_PAPER;
 function loadSounds(){
   SND_ITEM = new Audio('assets/item.wav');
   SND_PAPER = new Audio('assets/paper.wav');
 }
+function playItem(){ try{ SND_ITEM && SND_ITEM.play(); }catch(e){} }
+function playPaper(){ try{ SND_PAPER && SND_PAPER.play(); }catch(e){} }
 
 const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
 const CW_SIZE = 5;
-const CW_HL_COL = 2;
 
 function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
@@ -38,7 +38,7 @@ async function startScanner(){
       try{
         const codes = await detector.detect(video);
         if(codes && codes.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          playPaper();
           setTimeout(()=>{ handleScannedURL(codes[0].rawValue); }, 120);
           return;
         }
@@ -64,7 +64,7 @@ function setupUploadScan(){
         const bmp = await createImageBitmap(img);
         const res = await detector.detect(bmp);
         if(res && res.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          playPaper();
           setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
         } else { alert("Aucun QR détecté."); }
       }catch(err){ alert("Erreur de lecture : "+err.message); }
@@ -103,11 +103,9 @@ function buildCrossword(container){
       inp.setAttribute('data-r', r);
       inp.setAttribute('data-c', c);
       inp.addEventListener('input', (e)=>{
-        // keep only the LAST entered letter (replace existing)
         let v = (e.target.value || '').toUpperCase().replace(/[^A-Z]/g,'');
         if(v.length > 1) v = v.slice(-1);
         e.target.value = v;
-        // auto move to next cell horizontally if non-empty
         if(v && c < CW_SIZE-1){
           const next = container.querySelector(`input[data-r="${r}"][data-c="${c+1}"]`);
           if(next) next.focus();
@@ -125,36 +123,52 @@ function buildCrossword(container){
   btn.textContent = "Valider la grille";
   btn.style.marginTop = '10px';
   btn.onclick = ()=>{
-    const entries = [];
-    for(let r=0;r<CW_SIZE;r++){
-      let row = '';
-      for(let c=0;c<CW_SIZE;c++){
-        const val = (container.querySelector(`input[data-r="${r}"][data-c="${c}"]`).value||' ').toUpperCase();
-        row += val;
-      }
-      entries.push(row);
-    }
-    // Check without revealing answers
     const target = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-    let ok = true;
-    for(let i=0;i<CW_SIZE;i++){
-      if(entries[i] !== target[i]){ ok = false; break; }
+    for(let r=0;r<CW_SIZE;r++){
+      let row='';
+      for(let c=0;c<CW_SIZE;c++){
+        const val=(grid.children[r*CW_SIZE+c].value||' ').toUpperCase();
+        row+=val;
+      }
+      if(row !== target[r]){ alert("Pas encore bon. Indice : ferme, champ, lavoir, charrette, botanique."); return; }
     }
-    if(!ok){
-      alert("Pas encore bon. Indice : pense à la ferme, au champ, au lavoir, à la charrette et à la botanique.");
-      return;
-    }
-    // Highlight column to show CANNE
+    // highlight column 3 (index 2) for CANNE
     for(let r=0;r<CW_SIZE;r++){
       for(let c=0;c<CW_SIZE;c++){
-        const cell = container.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
-        if(c === 2) cell.classList.add('hl'); else cell.classList.add('ok');
+        const cell = grid.children[r*CW_SIZE+c];
+        if(c===2) cell.classList.add('hl'); else cell.classList.add('ok');
         cell.disabled = true;
       }
     }
-    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
+    playItem();
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
+  };
+  container.appendChild(btn);
+}
+
+function setupCaesar(container){
+  container.innerHTML = '';
+  const cipher = document.createElement('div');
+  cipher.className = 'cipher';
+  cipher.textContent = 'JDPH RI VWRQH';
+  container.appendChild(cipher);
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = "Ta phrase déchiffrée (ex : ... OF ... )";
+  container.appendChild(inp);
+  const btn = document.createElement('button');
+  btn.textContent = "Valider le décryptage";
+  btn.onclick = ()=>{
+    let v = (inp.value||'').toUpperCase().replace(/\s+/g,' ').trim();
+    // Accept "GAME OF STONES" exactly (allow multiple spaces collapsed)
+    if(v === 'GAME OF STONES'){
+      playItem();
+      alert("✅ Décryptage correct. Étape validée !");
+      setProgress(8);
+    }else{
+      alert("Ce n’est pas encore ça. Pense à César : décale les lettres…");
+    }
   };
   container.appendChild(btn);
 }
@@ -167,8 +181,8 @@ function render(){
 
   const story = qs('#story'); const lock = qs('#lock');
   const gateWrap = qs('.codegate'); const gateMsg=qs('#codeMsg'); const gateInput=qs('#codeInput'); const gateBtn=qs('#codeBtn');
-  const cw = qs('.cw');
-  gateWrap.style.display='none'; lock.style.display='none'; story.textContent=''; cw.style.display='none';
+  const cw = qs('.cw'); const cz = qs('.caesar');
+  gateWrap.style.display='none'; lock.style.display='none'; story.textContent=''; cw.style.display='none'; cz.style.display='none';
 
   if(step === 1){
     story.textContent = window.TEXTS[1] || '';
@@ -190,7 +204,7 @@ function render(){
         if(v === CODE_GATES[4].value){
           setProgress(4);
           gateWrap.style.display='none';
-          try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
+          playItem();
           alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
         }else{
           alert('Mauvais code.');
@@ -199,6 +213,9 @@ function render(){
     }else if(step === 7){
       cw.style.display='block';
       buildCrossword(cw);
+    }else if(step === 8){
+      cz.style.display='block';
+      setupCaesar(cz);
     }else{
       setProgress(step);
     }
@@ -206,6 +223,7 @@ function render(){
 
   qs('#scanBtn').onclick = startScanner;
   qs('#resetBtn').onclick = resetProgress;
+
   // upload scan setup
   const uploadBtn=qs('#uploadBtn'), fileInput=qs('#fileInput');
   uploadBtn.onclick = ()=>{ qs('.uploadWrap').style.display='block'; fileInput.click(); };
@@ -220,7 +238,7 @@ function render(){
         const bmp = await createImageBitmap(img);
         const res = await detector.detect(bmp);
         if(res && res.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          playPaper();
           setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
         } else { alert("Aucun QR détecté."); }
       }catch(err){ alert("Erreur de lecture : "+err.message); }

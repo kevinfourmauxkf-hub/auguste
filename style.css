@@ -36,3 +36,8 @@ padding:6px 10px;border-radius:8px;font-size:16px}
 .grid input.ok{background:#e8f7df;border-color:#8dc27a}
 .grid input.hl{background:#ffeaa7;border-color:#e0b359}
 .clues{margin-top:10px;font-size:16px;color:#4a3a24}
+/* Caesar step */
+.caesar{display:none;margin-top:12px;padding:12px;border:1px dashed #8d6a46;border-radius:12px;background:#f9f0d9}
+.caesar .cipher{font-size:22px;letter-spacing:2px;margin-bottom:8px}
+.caesar input{padding:10px;font-size:16px;border-radius:10px;border:1px solid #bba37c;width:100%;max-width:520px}
+.caesar button{margin-top:8px}
