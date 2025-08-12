@@ -1,17 +1,20 @@
 
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-12-crossword-v2';
+const VERSION = '2025-08-12-crossword-v3-sounds';
 const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider cette étape :" } };
+// sounds
+let SND_ITEM, SND_PAPER;
+function loadSounds(){
+  SND_ITEM = new Audio('assets/item.wav');
+  SND_PAPER = new Audio('assets/paper.wav');
+}
 
-// Crossword target words (rows): BICHE, CHAMP, JONCS, BENNE, FLEUR
-// Column index 2 (0-based) forms CANNE vertically.
 const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
 const CW_SIZE = 5;
 const CW_HL_COL = 2;
 
 function qs(s){ return document.querySelector(s); }
-function qsa(s){ return document.querySelectorAll(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
@@ -34,7 +37,11 @@ async function startScanner(){
     const tick = async()=>{
       try{
         const codes = await detector.detect(video);
-        if(codes && codes.length){ handleScannedURL(codes[0].rawValue); return; }
+        if(codes && codes.length){
+          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          setTimeout(()=>{ handleScannedURL(codes[0].rawValue); }, 120);
+          return;
+        }
       }catch(e){}
       rafId = requestAnimationFrame(tick);
     };
@@ -56,7 +63,10 @@ function setupUploadScan(){
       try{
         const bmp = await createImageBitmap(img);
         const res = await detector.detect(bmp);
-        if(res && res.length){ handleScannedURL(res[0].rawValue); } else { alert("Aucun QR détecté."); }
+        if(res && res.length){
+          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
+        } else { alert("Aucun QR détecté."); }
       }catch(err){ alert("Erreur de lecture : "+err.message); }
       finally{ URL.revokeObjectURL(url); }
     };
@@ -84,7 +94,6 @@ function buildCrossword(container){
   container.innerHTML = '';
   const grid = document.createElement('div');
   grid.className = 'grid';
-  // build 5x5 inputs
   for(let r=0;r<CW_SIZE;r++){
     for(let c=0;c<CW_SIZE;c++){
       const inp = document.createElement('input');
@@ -94,9 +103,12 @@ function buildCrossword(container){
       inp.setAttribute('data-r', r);
       inp.setAttribute('data-c', c);
       inp.addEventListener('input', (e)=>{
-        e.target.value = e.target.value.toUpperCase().replace(/[^A-ZÀÂÄÇÉÈÊËÏÎÔÖÙÛÜŸ]/g,'');
-        // auto move to next cell horizontally
-        if(e.target.value && c < CW_SIZE-1){
+        // keep only the LAST entered letter (replace existing)
+        let v = (e.target.value || '').toUpperCase().replace(/[^A-Z]/g,'');
+        if(v.length > 1) v = v.slice(-1);
+        e.target.value = v;
+        // auto move to next cell horizontally if non-empty
+        if(v && c < CW_SIZE-1){
           const next = container.querySelector(`input[data-r="${r}"][data-c="${c+1}"]`);
           if(next) next.focus();
         }
@@ -113,7 +125,6 @@ function buildCrossword(container){
   btn.textContent = "Valider la grille";
   btn.style.marginTop = '10px';
   btn.onclick = ()=>{
-    // read entries row-wise
     const entries = [];
     for(let r=0;r<CW_SIZE;r++){
       let row = '';
@@ -123,24 +134,25 @@ function buildCrossword(container){
       }
       entries.push(row);
     }
-    // compare
+    // Check without revealing answers
+    const target = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
     let ok = true;
     for(let i=0;i<CW_SIZE;i++){
-      if(entries[i] !== CW_ROWS[i]){ ok = false; break; }
+      if(entries[i] !== target[i]){ ok = false; break; }
     }
     if(!ok){
-      alert("Pas encore bon. Pense aux indices : BICHE, CHAMP, JONCS, BENNE, FLEUR.");
+      alert("Pas encore bon. Indice : pense à la ferme, au champ, au lavoir, à la charrette et à la botanique.");
       return;
     }
-    // highlight CANNE column
+    // Highlight column to show CANNE
     for(let r=0;r<CW_SIZE;r++){
       for(let c=0;c<CW_SIZE;c++){
         const cell = container.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
-        if(c === CW_HL_COL) cell.classList.add('hl');
-        else cell.classList.add('ok');
+        if(c === 2) cell.classList.add('hl'); else cell.classList.add('ok');
         cell.disabled = true;
       }
     }
+    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
   };
@@ -148,6 +160,7 @@ function buildCrossword(container){
 }
 
 function render(){
+  loadSounds();
   const step = getStepFromURL();
   const progress = getProgress();
   qs('#step').textContent = 'Étape '+step+' / '+TOTAL_STEPS;
@@ -166,7 +179,6 @@ function render(){
     }
     if(step <= progress){
       story.textContent = window.TEXTS[step] || '';
-      // if revisiting step 7, show filled grid hint (can't reconstruct easily, so hide crossword on revisit)
       return;
     }
     // expected next
@@ -178,16 +190,15 @@ function render(){
         if(v === CODE_GATES[4].value){
           setProgress(4);
           gateWrap.style.display='none';
+          try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
           alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
         }else{
           alert('Mauvais code.');
         }
       };
     }else if(step === 7){
-      // show crossword and require completion
       cw.style.display='block';
       buildCrossword(cw);
-      // Do NOT setProgress(7) here; only when solved.
     }else{
       setProgress(step);
     }
@@ -195,28 +206,29 @@ function render(){
 
   qs('#scanBtn').onclick = startScanner;
   qs('#resetBtn').onclick = resetProgress;
-  // setup upload scan only once
-  if(!window._uploadSetup){ window._uploadSetup=true; (function(){ 
-    const uploadBtn=qs('#uploadBtn'), fileInput=qs('#fileInput');
-    uploadBtn.onclick = ()=>{ qs('.uploadWrap').style.display='block'; fileInput.click(); };
-    fileInput.addEventListener('change', async e=>{
-      const file=e.target.files[0]; if(!file) return;
-      if(!('BarcodeDetector' in window)){ alert("Lecture d'image non supportée. Utilisez la caméra native."); return; }
-      const detector = new BarcodeDetector({ formats:['qr_code'] });
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = async()=>{
-        try{
-          const bmp = await createImageBitmap(img);
-          const res = await detector.detect(bmp);
-          if(res && res.length){ handleScannedURL(res[0].rawValue); } else { alert("Aucun QR détecté."); }
-        }catch(err){ alert("Erreur de lecture : "+err.message); }
-        finally{ URL.revokeObjectURL(url); }
-      };
-      img.onerror = ()=>{ alert("Image invalide."); URL.revokeObjectURL(url); };
-      img.src = url;
-    });
-  })(); }
+  // upload scan setup
+  const uploadBtn=qs('#uploadBtn'), fileInput=qs('#fileInput');
+  uploadBtn.onclick = ()=>{ qs('.uploadWrap').style.display='block'; fileInput.click(); };
+  fileInput.addEventListener('change', async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    if(!('BarcodeDetector' in window)){ alert("Lecture d'image non supportée. Utilisez la caméra native."); return; }
+    const detector = new BarcodeDetector({ formats:['qr_code'] });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = async()=>{
+      try{
+        const bmp = await createImageBitmap(img);
+        const res = await detector.detect(bmp);
+        if(res && res.length){
+          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
+          setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
+        } else { alert("Aucun QR détecté."); }
+      }catch(err){ alert("Erreur de lecture : "+err.message); }
+      finally{ URL.revokeObjectURL(url); }
+    };
+    img.onerror = ()=>{ alert("Image invalide."); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
 }
 
 window.addEventListener('DOMContentLoaded', render);
