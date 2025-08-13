@@ -1,7 +1,8 @@
 
+// v7.1 progression fix: auto-validate non-gated steps
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7-ready';
+const VERSION = '2025-08-13-v7.1';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -191,22 +192,27 @@ function render(){
   const step = getStepFromURL(); const progress = getProgress();
   qs('#stepNum').textContent = step;
   const story = qs('#story');
-  // Reset sections
+  // reset UI parts
   document.querySelectorAll('.lock').forEach(n=>n.remove());
   qs('#codeGate').style.display='none';
   qs('#crossword').style.display='none';
   qs('#caesarBox').style.display='none';
   qs('#mapWrap').style.display='none';
-  // Text
   story.textContent = TEXTS[step] || '';
-  // Progression rules
-  if(step===1){ if(progress<1) setProgress(1); }
-  else {
+
+  // Strict progression with auto-complete for non-gated steps
+  const gated = new Set([4,7,8]); // steps that require explicit validation
+  if(step===1){
+    if(progress<1) setProgress(1);
+  } else {
     if(step > progress + 1){
       const lock = document.createElement('div'); lock.className='lock';
       lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
       story.after(lock); return;
     }
+    // If current step is NOT gated, mark it as completed immediately on visit
+    if(!gated.has(step) && progress < step){ setProgress(step); }
+    // Show step-specific widgets
     if(step===4){ qs('#codeGate').style.display='block'; }
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
