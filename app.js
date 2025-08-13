@@ -1,8 +1,9 @@
 
-// v7.3: fullscreen map with torch (no page scroll while exploring) + keep v7.2 progression
+// v7.4: Step 11 shows ONLY a button "Ouvrir la carte", then fullscreen torch map.
+// Keeps v7.2 progression locks and v7.3 fullscreen torch behavior.
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.3';
+const VERSION = '2025-08-13-v7.4';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -152,7 +153,6 @@ function validateCaesar(){
 
 /* -------- Fullscreen Map with Torch (step 11) -------- */
 function openMapFullscreen(){
-  // prevent page scroll
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
 
@@ -179,7 +179,6 @@ function openMapFullscreen(){
 
   const move=(x,y)=>{
     const rect = inner.getBoundingClientRect();
-    // spotlight radius proportional to viewport
     const r = Math.max(120, Math.min(220, Math.min(rect.width, rect.height)*0.18));
     inner.style.setProperty('--r', r+'px');
     inner.style.setProperty('--x', (x - rect.left) + 'px');
@@ -188,7 +187,7 @@ function openMapFullscreen(){
   const onMouseMove = (e)=>{ move(e.clientX, e.clientY); };
   const onTouchMove = (e)=>{
     const t=e.touches[0]; move(t.clientX, t.clientY);
-    e.preventDefault(); // stop page scroll
+    e.preventDefault();
   };
 
   overlay.addEventListener('mousemove', onMouseMove);
@@ -201,17 +200,26 @@ function openMapFullscreen(){
     document.body.style.overflow = prevOverflow;
   };
   close.addEventListener('click', closeAll);
-  overlay.addEventListener('click', (e)=>{
-    // click outside inner closes too
-    if(e.target === overlay) closeAll();
-  });
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeAll(); });
 }
 
-function setupMapViewer(){
-  const wrap = qs('#mapWrap'); wrap.style.display='block';
-  const frame = wrap.querySelector('.mapFrame');
-  // Single tap/click opens full-screen viewer
-  frame.addEventListener('click', openMapFullscreen);
+function showMapButton(){
+  // Remove inline map if present
+  const mapWrap = qs('#mapWrap');
+  if(mapWrap){ mapWrap.style.display='none'; }
+
+  // Insert an "open map" button just after the story text
+  const btn = document.createElement('button');
+  btn.textContent = '📜 Ouvrir la carte (plein écran)';
+  btn.onclick = openMapFullscreen;
+
+  // avoid duplicate button on re-render
+  const old = document.getElementById('mapOpenBtn');
+  if(old) old.remove();
+  btn.id = 'mapOpenBtn';
+
+  const story = qs('#story');
+  story.after(btn);
 }
 
 const gated = new Set([4,7,8]);
@@ -227,7 +235,7 @@ const TEXTS = {
   8: "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »\n\nTexte chiffré :\nJDPH RI VWRQH\n\n⤷ Écris ci‑dessous la phrase déchiffrée pour valider.",
   9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Derrière, tu trouveras un morceau de vérité… et une énigme qui te fera lever les yeux… et peut‑être les pieds. »",
   10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa gauche un recoin non scellé. Derrière, ton destin t’attend. »",
-  11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Cherche une pierre pas comme les autres : ce que tu trouveras ouvrira le dernier secret. »\n\n⤷ Touchez la carte pour l’explorer en plein écran à la lampe.",
+  11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Voici ma carte. Touchez le bouton ci‑dessous pour l’explorer à la lampe, en plein écran. »",
   12:"« Bravo ! Tu as trouvé l’emplacement du trésor. Marque ta victoire… et prépare le terrain pour le prochain aventurier. »"
 };
 
@@ -240,7 +248,7 @@ function render(){
   qs('#codeGate').style.display='none';
   qs('#crossword').style.display='none';
   qs('#caesarBox').style.display='none';
-  qs('#mapWrap').style.display='none';
+  const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none'; // never show inline map now
   story.textContent = TEXTS[step] || '';
 
   if(step===1){
@@ -255,13 +263,14 @@ function render(){
       return;
     }
     // auto-validate non-gated steps when they are exactly the next step
+    const gated = new Set([4,7,8]);
     if(step === progress + 1 && !gated.has(step)){
       setProgress(step);
     }
     if(step===4){ qs('#codeGate').style.display='block'; }
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
-    if(step===11){ setupMapViewer(); }
+    if(step===11){ showMapButton(); }
   }
 }
 
