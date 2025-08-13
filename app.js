@@ -1,8 +1,8 @@
 
-// v7.6.4: fix boolean typo (true vs True) + harden step-4 display
+// v7.6.5: strict pre-req gates (5→gate4, 8→gate7, 9→gate8) + robust step-4 display
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.4';
+const VERSION = '2025-08-13-v7.6.5';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -20,10 +20,17 @@ function setGate(key){ localStorage.setItem('auguste_'+key, 'ok'); }
 
 function resetProgress(){ localStorage.removeItem('auguste_progress'); ['gate4','gate7','gate8'].forEach(k=>localStorage.removeItem('auguste_'+k)); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
 
+function requireGateForStep(step){
+  // Step you are TRYING to open must satisfy certain pre-req gates
+  if(step>=5 && !getGate('gate4')) return {ok:false, need:'4'};
+  if(step>=8 && !getGate('gate7')) return {ok:false, need:'7'};
+  if(step>=9 && !getGate('gate8')) return {ok:false, need:'8'};
+  return {ok:true};
+}
+
 async function startScanner(){
   const step = getStepFromURL();
   const progress = getProgress();
-  if(step===9 && progress<8){ alert("Tu dois d’abord valider l’étape 8 avant de pouvoir scanner la suivante."); return; }
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){
@@ -78,19 +85,30 @@ function handleScannedURL(urlStr){
     const stepParam = parseInt(new URLSearchParams(url.search).get('step')||'0',10);
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
+
+    // Allow reopening past steps
     if(stepParam <= progress){
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
+
+    // Next step only, with pre-req gates
     if(stepParam === progress + 1){
+      const gate = requireGateForStep(stepParam);
+      if(!gate.ok){
+        alert("Tu dois d’abord valider l’étape "+gate.need+" avant d’ouvrir celle‑ci.");
+        return;
+      }
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
+
+    // Too far ahead
     alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
   }catch{ alert("Lien QR invalide."); }
 }
 
-/* -------- Map (unchanged from 7.6.3) -------- */
+/* -------- Map (unchanged from 7.6.4) -------- */
 function openMapFullscreen(){
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -133,7 +151,8 @@ function validateCaesar(){
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
     try{ localStorage.setItem('auguste_gate8','ok'); }catch(e){}
-    playItem(); alert('✅ Bien joué. Étape validée !'); setProgress(8);
+    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
+    alert('✅ Bien joué. Étape validée !'); setProgress(8);
   } else {
     alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
   }
@@ -189,14 +208,14 @@ function buildCrossword(container){
       }
     }
     try{ localStorage.setItem('auguste_gate7','ok'); }catch(e){}
-    playItem();
+    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
   };
   container.appendChild(btn);
 }
 
-/* -------- Texts -------- */
+/* -------- Texts (kept from 7.6.4) -------- */
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -229,19 +248,37 @@ function render(){
 
   story.textContent = TEXTS[step] || TEXTS[1];
 
+  // Step-1 init
   if(step===1){
     if(progress<1) setProgress(1);
     return;
   }
 
+  // Hard lock if pre-req missing for the currently opened step
+  const gate = requireGateForStep(step);
+  if(!gate.ok){
+    const lock = document.createElement('div'); lock.className='lock';
+    lock.textContent = "Tu dois d’abord valider l’étape "+gate.need+".";
+    story.after(lock);
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
+    // Show gate UI if it's step 4
+    if(gate.need==='4' && step===4){
+      cg.style.display='block';
+      const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
+    }
+    return;
+  }
+
+  // Normal lock for jumping too far
   if(step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
     story.after(lock);
-    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true; // <-- fixed boolean
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
     return;
   }
 
+  // Info if revisiting older step
   if(step < progress){
     const info = document.createElement('div'); info.className='lock';
     info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
@@ -249,18 +286,18 @@ function render(){
     story.after(info);
   }
 
+  // Auto-validate non-gated when it's exactly the next step
   const gated = new Set([4,7,8]);
   if(step === progress + 1 && !gated.has(step)){
     setProgress(step);
   }
 
+  // Show special UIs
   if(step===4){
-    if(!localStorage.getItem('auguste_gate4')){
+    if(!getGate('gate4')){
       cg.style.display='block';
       const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
-    } else {
-      if(progress<4) setProgress(4);
-    }
+    } else if(progress<4){ setProgress(4); }
   }
   if(step===7){ cw.style.display='block'; buildCrossword(cw); }
   if(step===8){ cz.style.display='block'; }
@@ -272,7 +309,7 @@ function validateCode(){
   if(v===CODE_GATES[4].value){
     try{ localStorage.setItem('auguste_gate4','ok'); }catch(e){}
     setProgress(Math.max(getProgress(),4));
-    playItem();
+    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
     alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
     const cg = qs('#codeGate'); if(cg) cg.style.display='none';
   } else {
