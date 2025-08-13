@@ -1,9 +1,8 @@
 
-// v7.5: step-4 code 1024 restored; strict progression; crossword step7; Caesar step8;
-// step11 fullscreen torch opened by button; sounds kept.
+// v7.5.1 hotfix: step-4 validation hardened + debug overlay (?debug=1)
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.5';
+const VERSION = '2025-08-13-v7.5.1';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -15,6 +14,17 @@ function getStepFromURL(){ const url = new URL(window.location.href); const s=ur
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
 function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
+
+function debugOverlay(step, progress){
+  const url = new URL(window.location.href);
+  if(url.searchParams.get('debug')!=='1') return;
+  const d = document.createElement('div');
+  d.style.position='fixed'; d.style.bottom='8px'; d.style.left='8px';
+  d.style.background='rgba(0,0,0,.55)'; d.style.color='#fff'; d.style.padding='6px 10px';
+  d.style.borderRadius='8px'; d.style.font='12px monospace';
+  d.textContent = `DEBUG step=${step} progress=${progress}`;
+  document.body.appendChild(d);
+}
 
 async function startScanner(){
   const step = getStepFromURL();
@@ -70,16 +80,16 @@ function setupUploadScan(){
 function handleScannedURL(urlStr){
   try{
     const url=new URL(urlStr);
-    if(url.host !== EXPECTED_HOST){ alert("QR inconnu (mauvais domaine)."); return; }
+    if(url.host !== location.host){ alert("QR inconnu (mauvais domaine)."); return; }
     const stepParam = parseInt(new URLSearchParams(url.search).get('step')||'0',10);
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
     if(stepParam !== progress + 1){ alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+"."); return; }
-    window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
+    window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION + '&debug='+(new URL(window.location.href).searchParams.get('debug')||'');
   }catch{ alert("Lien QR invalide."); }
 }
 
-/* -------- Crosswords (step 7) -------- */
+/* -------- Crossword (7) & Caesar (8) unchanged from v7.5 -------- */
 const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
 const CW_SIZE = 5;
 function buildCrossword(container){
@@ -135,88 +145,44 @@ function buildCrossword(container){
   container.appendChild(btn);
 }
 
-/* -------- Caesar (step 8) -------- */
 function setupCaesar(){
-  const box = qs('#caesarBox');
-  box.style.display='block';
-  const input = qs('#caesarInput'); input.value='';
+  qs('#caesarBox').style.display='block';
+  qs('#caesarInput').value='';
 }
 function validateCaesar(){
-  const input = qs('#caesarInput');
-  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
-  if(v==='GAME OF STONES'){
-    playItem(); alert('✅ Décryptage correct. Étape validée !'); setProgress(8);
-  } else {
-    alert("Ce n’est pas encore ça. Pense à César : décale les lettres…");
-  }
+  let v=(qs('#caesarInput').value||'').toUpperCase().replace(/\s+/g,' ').trim();
+  if(v==='GAME OF STONES'){ playItem(); alert('✅ Décryptage correct. Étape validée !'); setProgress(8); }
+  else alert("Ce n’est pas encore ça. Pense à César : décale les lettres…");
 }
 
-/* -------- Fullscreen Map with Torch (step 11) -------- */
+/* -------- Fullscreen Map with Torch (11) -------- */
 function openMapFullscreen(){
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
-
   const overlay = document.createElement('div');
-  overlay.className = 'fsOverlay';
-  overlay.setAttribute('role','dialog');
-  overlay.setAttribute('aria-modal','true');
-
-  const inner = document.createElement('div');
-  inner.className = 'fsInner flashlight';
-
-  const img = document.createElement('img');
-  img.src = 'assets/carte2025.png';
-  img.alt = 'Carte au trésor';
-
-  const close = document.createElement('button');
-  close.className = 'fsClose';
-  close.textContent = 'Fermer ❌';
-
-  inner.appendChild(img);
-  inner.appendChild(close);
-  overlay.appendChild(inner);
-  document.body.appendChild(overlay);
-
-  const move=(x,y)=>{
-    const rect = inner.getBoundingClientRect();
-    const r = Math.max(120, Math.min(220, Math.min(rect.width, rect.height)*0.18));
-    inner.style.setProperty('--r', r+'px');
-    inner.style.setProperty('--x', (x - rect.left) + 'px');
-    inner.style.setProperty('--y', (y - rect.top) + 'px');
-  };
-  const onMouseMove = (e)=>{ move(e.clientX, e.clientY); };
-  const onTouchMove = (e)=>{
-    const t=e.touches[0]; move(t.clientX, t.clientY);
-    e.preventDefault();
-  };
-
+  overlay.className = 'fsOverlay'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
+  const inner = document.createElement('div'); inner.className = 'fsInner flashlight';
+  const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
+  const close = document.createElement('button'); close.className='fsClose'; close.textContent='Fermer ❌';
+  inner.appendChild(img); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
+  const move=(x,y)=>{ const rect=inner.getBoundingClientRect(); const r=Math.max(120,Math.min(220,Math.min(rect.width,rect.height)*0.18)); inner.style.setProperty('--r',r+'px'); inner.style.setProperty('--x',(x-rect.left)+'px'); inner.style.setProperty('--y',(y-rect.top)+'px'); };
+  const onMouseMove=(e)=>move(e.clientX,e.clientY);
+  const onTouchMove=(e)=>{ const t=e.touches[0]; move(t.clientX,t.clientY); e.preventDefault(); };
   overlay.addEventListener('mousemove', onMouseMove);
   overlay.addEventListener('touchmove', onTouchMove, {passive:false});
-
-  const closeAll = ()=>{
-    overlay.removeEventListener('mousemove', onMouseMove);
-    overlay.removeEventListener('touchmove', onTouchMove);
-    document.body.removeChild(overlay);
-    document.body.style.overflow = prevOverflow;
-  };
+  const closeAll=()=>{ overlay.removeEventListener('mousemove', onMouseMove); overlay.removeEventListener('touchmove', onTouchMove); document.body.removeChild(overlay); document.body.style.overflow = prevOverflow; };
   close.addEventListener('click', closeAll);
-  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeAll(); });
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeAll(); });
 }
-
 function showMapButton(){
-  // Clear inline map container
   const mapWrap = qs('#mapWrap'); if(mapWrap){ mapWrap.innerHTML=''; mapWrap.style.display='none'; }
-  // Add button under story
-  const btn = document.createElement('button');
-  btn.textContent = '📜 Ouvrir la carte (plein écran)';
-  btn.id = 'mapOpenBtn';
-  btn.onclick = openMapFullscreen;
   const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
+  const btn = document.createElement('button'); btn.id='mapOpenBtn'; btn.textContent='📜 Ouvrir la carte (plein écran)'; btn.onclick=openMapFullscreen;
   qs('#story').after(btn);
 }
 
+/* -------- Render with strict progression -------- */
 const gated = new Set([4,7,8]);
-
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -244,6 +210,8 @@ function render(){
   const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
   story.textContent = TEXTS[step] || '';
 
+  debugOverlay(step, progress);
+
   if(step===1){
     if(progress<1) setProgress(1);
   } else {
@@ -255,11 +223,16 @@ function render(){
       const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
       return;
     }
-    // auto-validate non-gated steps when they are exactly the next step
+    // auto-validate non-gated when exactly the next step
     if(step === progress + 1 && !gated.has(step)){
       setProgress(step);
     }
-    if(step===4){ qs('#codeGate').style.display='block'; }
+    // FORCE-DISPLAY code gate at step 4 no matter progress state (until validated)
+    if(step===4){
+      qs('#codeGate').style.display='block';
+      const input = qs('#codeInput'); input.value='';
+      input.focus();
+    }
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
     if(step===11){ showMapButton(); }
@@ -267,7 +240,9 @@ function render(){
 }
 
 function validateCode(){
-  const input = qs('#codeInput'); const v=(input.value||'').trim();
+  const input = qs('#codeInput'); let v=(input.value||'').trim();
+  // normalize: keep only digits so '1 024' or '1024 ' passes
+  v = v.replace(/\D+/g,'');
   if(v===CODE_GATES[4].value){
     setProgress(4); playItem();
     alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
