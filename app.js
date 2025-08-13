@@ -1,9 +1,9 @@
 
-// v7.6.1R7: After Caesar success, show humorous instruction that phrase is the hint to find the next QR.
-// Base: R6 (step-4 gate stable).
+// v7.6.1R8: Step 8 success message toned down per request.
+// Base logic preserved (step 4 gate strict, etc.).
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.1R7';
+const VERSION = '2025-08-13-v7.6.1R8';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -154,8 +154,7 @@ function validateCaesar(){
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
     playItem();
-    // Show humorous guidance that this phrase is the actual hint to locate the next QR.
-    alert("✅ Bien joué.\n« GAME OF STONES » n’est pas qu’une solution… c’est ton **indice** !\nCherche l’endroit où la pierre est reine — et, si tu y trônes, évite de faire le fier trop longtemps.");
+    alert("✅ Bien joué ! « GAME OF STONES » n’est pas qu’un caprice d’empereur : c’est l’indice du prochain QR.\nCherche bien mais fait attention à ne pas te retrouver avec les fesses carrées — parole d’Auguste.");
     setProgress(8);
   } else {
     alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
@@ -193,7 +192,7 @@ function showMapButton(){
   qs('#story').after(btn);
 }
 
-/* -------- Texts (same as R6) -------- */
+/* -------- Texts -------- */
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -232,7 +231,6 @@ function render(){
     return;
   }
 
-  // step 4 UI visible whatever the progress (kept from R5/R6)
   if(step===4){
     cg.style.display='block';
     const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
@@ -243,7 +241,6 @@ function render(){
     }
   }
 
-  // Block future jumps (except 4 where we still render the UI)
   if(step !== 4 && step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
@@ -252,7 +249,6 @@ function render(){
     return;
   }
 
-  // Info for revisits
   if(step < progress){
     const info = document.createElement('div'); info.className='lock';
     info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
@@ -260,7 +256,6 @@ function render(){
     story.after(info);
   }
 
-  // Auto-progress for non-gated steps
   const gated = new Set([4,7,8]);
   if(step === progress + 1 && !gated.has(step)){
     setProgress(step);
