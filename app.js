@@ -1,9 +1,10 @@
 
-// v7.6.1 full bundle: fixes missing QR1 render, keeps back-scan, step4 gate, step7/8, fullscreen map.
+// v7.6.2: persistent gates + robust step-4 + no regression across updates
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.1';
+const VERSION = '2025-08-13-v7.6.2';
 const CODE_GATES = { 4: { value: '1024' } };
+
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
 function playItem(){ try{ SND_ITEM && SND_ITEM.play(); }catch(e){} }
@@ -13,7 +14,22 @@ function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
-function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
+
+function getGate(key){ return localStorage.getItem('auguste_'+key)==='ok'; }
+function setGate(key){ localStorage.setItem('auguste_'+key, 'ok'); }
+
+function resetProgress(){ /* no auto reset on version change */ localStorage.removeItem('auguste_progress'); ['gate4','gate7','gate8'].forEach(k=>localStorage.removeItem('auguste_'+k)); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
+
+function debugOverlay(step, progress){
+  const url = new URL(window.location.href);
+  if(url.searchParams.get('debug')!=='1') return;
+  const d = document.createElement('div');
+  d.style.position='fixed'; d.style.bottom='8px'; d.style.left='8px';
+  d.style.background='rgba(0,0,0,.6)'; d.style.color='#fff'; d.style.padding='6px 10px';
+  d.style.borderRadius='8px'; d.style.font='12px monospace'; d.style.zIndex='999999';
+  d.textContent = `DEBUG step=${step} progress=${progress} gates: {4:${getGate('gate4')?'ok':'..'},7:${getGate('gate7')?'ok':'..'},8:${getGate('gate8')?'ok':'..'}}`;
+  document.body.appendChild(d);
+}
 
 async function startScanner(){
   const step = getStepFromURL();
@@ -74,11 +90,11 @@ function handleScannedURL(urlStr){
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
     if(stepParam <= progress){
-      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION + '&debug='+(new URL(window.location.href).searchParams.get('debug')||'');
       return;
     }
     if(stepParam === progress + 1){
-      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION + '&debug='+(new URL(window.location.href).searchParams.get('debug')||'');
       return;
     }
     alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
@@ -135,6 +151,7 @@ function buildCrossword(container){
       }
     }
     playItem();
+    setGate('gate7');
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
   };
@@ -151,7 +168,8 @@ function validateCaesar(){
   const input = qs('#caesarInput');
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
-    playItem(); alert('✅ Décryptage correct. Étape validée !'); setProgress(8);
+    playItem(); setGate('gate8');
+    alert('✅ Décryptage correct. Étape validée !'); setProgress(8);
   } else {
     alert("Ce n’est pas encore ça. Pense à César : décale les lettres…");
   }
@@ -215,22 +233,27 @@ function render(){
   qs('#caesarBox').style.display='none';
   const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
 
-  // Fallback to ensure something is visible at QR1 even if TEXTS has an issue
+  // Show text safely
   const fallback = "Bienvenue dans l’aventure d’Auguste Le Du. Si ce message apparaît, rechargez la page ou videz le cache (ou ouvrez un onglet privé).";
-
   story.textContent = TEXTS[step] || TEXTS[1] || fallback;
 
+  // Backfill gates if user had already progressed before update
+  if(progress>=5 && !getGate('gate4')) setGate('gate4');
+
+  // Step 1 init
   if(step===1){
     if(progress<1) setProgress(1);
+    debugOverlay(step, progress);
     return;
   }
 
-  // Lock logic
+  // Locking
   if(step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
     story.after(lock);
     const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
+    debugOverlay(step, progress);
     return;
   }
 
@@ -246,10 +269,32 @@ function render(){
     setProgress(step);
   }
 
-  if(step===4){ qs('#codeGate').style.display='block'; }
+  // Gates
+  if(step===4){
+    if(!getGate('gate4')){
+      qs('#codeGate').style.display='block';
+      const input = qs('#codeInput'); input.value=''; input.focus();
+    } else {
+      // gate already passed; ensure progress moves on if needed
+      if(progress<4) setProgress(4);
+    }
+  }
   if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
   if(step===8){ qs('#caesarBox').style.display='block'; }
   if(step===11){ showMapButton(); }
+
+  debugOverlay(step, progress);
+}
+
+function validateCode(){
+  const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
+  if(v===CODE_GATES[4].value){
+    setGate('gate4'); setProgress(Math.max(getProgress(),4)); playItem();
+    alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
+    qs('#codeGate').style.display='none';
+  } else {
+    alert('Mauvais code.');
+  }
 }
 
 window.addEventListener('DOMContentLoaded', render);
