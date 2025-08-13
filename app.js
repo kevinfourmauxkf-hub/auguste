@@ -1,9 +1,9 @@
 
-// v7.6.1R6: Step 7 clues text updated + humorous message after CANNE found.
-// Keep R5 logic for step 4 gate and progression.
+// v7.6.1R7: After Caesar success, show humorous instruction that phrase is the hint to find the next QR.
+// Base: R6 (step-4 gate stable).
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.1R6';
+const VERSION = '2025-08-13-v7.6.1R7';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -153,7 +153,10 @@ function validateCaesar(){
   const input = qs('#caesarInput');
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
-    playItem(); alert('✅ Bien joué. Étape validée !'); setProgress(8);
+    playItem();
+    // Show humorous guidance that this phrase is the actual hint to locate the next QR.
+    alert("✅ Bien joué.\n« GAME OF STONES » n’est pas qu’une solution… c’est ton **indice** !\nCherche l’endroit où la pierre est reine — et, si tu y trônes, évite de faire le fier trop longtemps.");
+    setProgress(8);
   } else {
     alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
   }
@@ -190,7 +193,7 @@ function showMapButton(){
   qs('#story').after(btn);
 }
 
-/* -------- Texts -------- */
+/* -------- Texts (same as R6) -------- */
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -229,7 +232,7 @@ function render(){
     return;
   }
 
-  // step 4 UI visible whatever the progress (like R5)
+  // step 4 UI visible whatever the progress (kept from R5/R6)
   if(step===4){
     cg.style.display='block';
     const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
