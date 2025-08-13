@@ -1,6 +1,6 @@
 
 /* Overlay base */
-.fsOverlay.solidBg{position:fixed;inset:0;background:#000;/* fully opaque */display:flex;align-items:center;justify-content:center;padding:12px}
+.fsOverlay.solidBg{position:fixed;inset:0;background:#000;/* fully opaque */display:flex;align-items:center;justify-content:center;padding:12px;z-index:99999}
 .fsInner{position:relative;width:min(1200px,96vw);height:min(86vh,96vh);border-radius:14px;overflow:hidden;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.8)}
 .fsInner img{width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .fsClose.xonly{position:absolute;top:10px;right:10px;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:22px;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -8,7 +8,6 @@
 
 /* Torch: a dark layer WITH a transparent hole to reveal the map, NOT the page */
 .torch{position:absolute;inset:0;pointer-events:none;
-/* Paint the full layer dark, then punch a transparent hole using radial-gradient with 'transparent' center */
 background:
   radial-gradient(circle var(--r) at var(--x) var(--y),
     transparent 0%,

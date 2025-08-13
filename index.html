@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Le Dernier Secret d’Auguste Le Du</title>
-  <link rel="stylesheet" href="style.css?v=7.5" />
+  <link rel="stylesheet" href="style.css?v=7.6.1" />
+  <link rel="stylesheet" href="style-map.css?v=7.6.1" />
   <meta name="theme-color" content="#d9c79a" />
 </head>
 <body onload="loadSounds(); setupUploadScan();">
@@ -14,11 +15,11 @@
         <img src="assets/seal.png" alt="Sceau" />
         <div>
           <h1>Le Dernier Secret d’Auguste Le Du</h1>
-          <div class="step">Étape <span id="stepNum"></span> / 12</div>
+          <div class="step">Étape <span id="stepNum">—</span> / 12</div>
         </div>
       </div>
       <hr/>
-      <p id="story"></p>
+      <p id="story">Chargement…</p>
 
       <div class="codegate" id="codeGate">
         <label for="codeInput" class="small">Code requis :</label>
@@ -59,6 +60,6 @@
       </div>
     </div>
   </div>
-  <script src="app.js?v=7.5"></script>
+  <script src="app.js?v=7.6.1"></script>
 </body>
 </html>

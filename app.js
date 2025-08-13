@@ -1,8 +1,8 @@
 
-// v7.6: allow reopening past steps (back-scan). Strict lock only for future steps.
+// v7.6.1 full bundle: fixes missing QR1 render, keeps back-scan, step4 gate, step7/8, fullscreen map.
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6';
+const VERSION = '2025-08-13-v7.6.1';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -18,7 +18,6 @@ function resetProgress(){ localStorage.removeItem('auguste_progress'); window.lo
 async function startScanner(){
   const step = getStepFromURL();
   const progress = getProgress();
-  // special: step 9 needs step 8 validated to scan next
   if(step===9 && progress<8){ alert("Tu dois d’abord valider l’étape 8 (décryptage) avant de pouvoir scanner la suivante."); return; }
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
@@ -75,16 +74,13 @@ function handleScannedURL(urlStr){
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
     if(stepParam <= progress){
-      // Allow reopening past (or current) steps freely
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
     if(stepParam === progress + 1){
-      // Next correct step
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
-    // future step beyond next → block
     alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
   }catch{ alert("Lien QR invalide."); }
 }
@@ -161,7 +157,7 @@ function validateCaesar(){
   }
 }
 
-/* -------- Map fullscreen (11) stays from previous versions -------- */
+/* -------- Fullscreen Map (11) -------- */
 function openMapFullscreen(){
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -188,8 +184,7 @@ function showMapButton(){
   qs('#story').after(btn);
 }
 
-/* -------- Render with strict lock for future, free view for past -------- */
-const gated = new Set([4,7,8]);
+/* -------- Texts -------- */
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -205,52 +200,56 @@ const TEXTS = {
   12:"« Bravo ! Tu as trouvé l’emplacement du trésor. Marque ta victoire… et prépare le terrain pour le prochain aventurier. »"
 };
 
+/* -------- Render -------- */
 function render(){
-  const step = getStepFromURL(); const progress = getProgress();
-  qs('#stepNum').textContent = step;
+  const step = getStepFromURL();
+  const progress = getProgress();
   const story = qs('#story');
+  const stepNum = qs('#stepNum');
+  if(stepNum) stepNum.textContent = step;
+
+  // Reset sections
   document.querySelectorAll('.lock').forEach(n=>n.remove());
   qs('#codeGate').style.display='none';
   qs('#crossword').style.display='none';
   qs('#caesarBox').style.display='none';
   const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
-  story.textContent = TEXTS[step] || '';
+
+  // Fallback to ensure something is visible at QR1 even if TEXTS has an issue
+  const fallback = "Bienvenue dans l’aventure d’Auguste Le Du. Si ce message apparaît, rechargez la page ou videz le cache (ou ouvrez un onglet privé).";
+
+  story.textContent = TEXTS[step] || TEXTS[1] || fallback;
 
   if(step===1){
     if(progress<1) setProgress(1);
-  } else {
-    if(step > progress + 1){
-      // future step → hard lock (scanner disabled)
-      const lock = document.createElement('div'); lock.className='lock';
-      lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
-      story.after(lock);
-      const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
-      return;
-    }
-    if(step < progress){
-      // viewing a past validated step → info but keep scanner enabled
-      const info = document.createElement('div'); info.className='lock';
-      info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
-      info.textContent = "Étape déjà validée. Tu peux relire, ou scanner l’étape " + (progress+1) + " pour poursuivre.";
-      story.after(info);
-    }
-    // auto-validate if it's exactly the next step and not gated
-    const gated = new Set([4,7,8]);
-    if(step === progress + 1 && !gated.has(step)){
-      setProgress(step);
-    }
-    if(step===4){ qs('#codeGate').style.display='block'; }
-    if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
-    if(step===8){ qs('#caesarBox').style.display='block'; }
-    if(step===11){ showMapButton(); }
+    return;
   }
-}
 
-function validateCode(){
-  const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
-  if(v===CODE_GATES[4].value){
-    setProgress(4); playItem(); alert("✅ Étape 4 validée. Tu peux scanner la suivante."); qs('#codeGate').style.display='none';
-  } else { alert('Mauvais code.'); }
+  // Lock logic
+  if(step > progress + 1){
+    const lock = document.createElement('div'); lock.className='lock';
+    lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
+    story.after(lock);
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
+    return;
+  }
+
+  if(step < progress){
+    const info = document.createElement('div'); info.className='lock';
+    info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
+    info.textContent = "Étape déjà validée. Tu peux relire, ou scanner l’étape " + (progress+1) + " pour poursuivre.";
+    story.after(info);
+  }
+
+  const gated = new Set([4,7,8]);
+  if(step === progress + 1 && !gated.has(step)){
+    setProgress(step);
+  }
+
+  if(step===4){ qs('#codeGate').style.display='block'; }
+  if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
+  if(step===8){ qs('#caesarBox').style.display='block'; }
+  if(step===11){ showMapButton(); }
 }
 
 window.addEventListener('DOMContentLoaded', render);
