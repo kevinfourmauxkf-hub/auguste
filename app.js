@@ -1,8 +1,8 @@
 
-// v7.6.2: persistent gates + robust step-4 + no regression across updates
+// v7.6.3: smaller torch; text updates (steps 8,9,10,12)
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.2';
+const VERSION = '2025-08-13-v7.6.3';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -18,23 +18,12 @@ function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('au
 function getGate(key){ return localStorage.getItem('auguste_'+key)==='ok'; }
 function setGate(key){ localStorage.setItem('auguste_'+key, 'ok'); }
 
-function resetProgress(){ /* no auto reset on version change */ localStorage.removeItem('auguste_progress'); ['gate4','gate7','gate8'].forEach(k=>localStorage.removeItem('auguste_'+k)); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
-
-function debugOverlay(step, progress){
-  const url = new URL(window.location.href);
-  if(url.searchParams.get('debug')!=='1') return;
-  const d = document.createElement('div');
-  d.style.position='fixed'; d.style.bottom='8px'; d.style.left='8px';
-  d.style.background='rgba(0,0,0,.6)'; d.style.color='#fff'; d.style.padding='6px 10px';
-  d.style.borderRadius='8px'; d.style.font='12px monospace'; d.style.zIndex='999999';
-  d.textContent = `DEBUG step=${step} progress=${progress} gates: {4:${getGate('gate4')?'ok':'..'},7:${getGate('gate7')?'ok':'..'},8:${getGate('gate8')?'ok':'..'}}`;
-  document.body.appendChild(d);
-}
+function resetProgress(){ localStorage.removeItem('auguste_progress'); ['gate4','gate7','gate8'].forEach(k=>localStorage.removeItem('auguste_'+k)); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
 
 async function startScanner(){
   const step = getStepFromURL();
   const progress = getProgress();
-  if(step===9 && progress<8){ alert("Tu dois d’abord valider l’étape 8 (décryptage) avant de pouvoir scanner la suivante."); return; }
+  if(step===9 && progress<8){ alert("Tu dois d’abord valider l’étape 8 avant de pouvoir scanner la suivante."); return; }
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){
@@ -90,18 +79,71 @@ function handleScannedURL(urlStr){
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
     if(stepParam <= progress){
-      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION + '&debug='+(new URL(window.location.href).searchParams.get('debug')||'');
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
     if(stepParam === progress + 1){
-      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION + '&debug='+(new URL(window.location.href).searchParams.get('debug')||'');
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
     alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
   }catch{ alert("Lien QR invalide."); }
 }
 
-/* -------- Crossword (7) -------- */
+/* -------- Fullscreen Map (smaller torch) -------- */
+function openMapFullscreen(){
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  const overlay = document.createElement('div');
+  overlay.className = 'fsOverlay solidBg';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
+  overlay.style.zIndex = 99999;
+  const inner = document.createElement('div'); inner.className = 'fsInner';
+  const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
+  const torch = document.createElement('div'); torch.className='torch';
+  // smaller default radius
+  torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','110px');
+  const close = document.createElement('button'); close.className='fsClose xonly'; close.textContent='✖'; close.setAttribute('aria-label','Fermer la carte');
+  inner.appendChild(img); inner.appendChild(torch); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
+  const move=(x,y)=>{
+    const rect=inner.getBoundingClientRect();
+    const rx=x-rect.left; const ry=y-rect.top;
+    // smaller factor (0.12) and caps
+    const r=Math.max(90, Math.min(170, Math.min(rect.width,rect.height)*0.12));
+    torch.style.setProperty('--r',r+'px'); torch.style.setProperty('--x',rx+'px'); torch.style.setProperty('--y',ry+'px');
+  };
+  overlay.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
+  overlay.addEventListener('touchmove', e=>{ const t=e.touches[0]; move(t.clientX,t.clientY); e.preventDefault(); }, {passive:false});
+  const closeAll=()=>{ document.body.removeChild(overlay); document.body.style.overflow = prevOverflow; };
+  close.addEventListener('click', closeAll);
+}
+function showMapButton(){
+  const wrap = qs('#mapWrap'); if(wrap){ wrap.style.display='none'; }
+  const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
+  const btn = document.createElement('button'); btn.id='mapOpenBtn'; btn.textContent='📜 Ouvrir la carte (plein écran)'; btn.onclick=openMapFullscreen;
+  qs('#story').after(btn);
+}
+
+/* -------- Caesar (8) -------- */
+function setupCaesar(){
+  const box = qs('#caesarBox');
+  box.style.display='block';
+  const input = qs('#caesarInput'); input.value='';
+}
+function validateCaesar(){
+  const input = qs('#caesarInput');
+  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
+  if(v==='GAME OF STONES'){
+    playItem(); localStorage.setItem('auguste_gate8','ok');
+    alert('✅ Bien joué. Étape validée !');
+    setProgress(8);
+  } else {
+    // harsher fail text, no hint
+    alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
+  }
+}
+
+/* -------- Crossword (7) unchanged -------- */
 const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
 const CW_SIZE = 5;
 function buildCrossword(container){
@@ -151,55 +193,11 @@ function buildCrossword(container){
       }
     }
     playItem();
-    setGate('gate7');
+    localStorage.setItem('auguste_gate7','ok');
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
   };
   container.appendChild(btn);
-}
-
-/* -------- Caesar (8) -------- */
-function setupCaesar(){
-  const box = qs('#caesarBox');
-  box.style.display='block';
-  const input = qs('#caesarInput'); input.value='';
-}
-function validateCaesar(){
-  const input = qs('#caesarInput');
-  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
-  if(v==='GAME OF STONES'){
-    playItem(); setGate('gate8');
-    alert('✅ Décryptage correct. Étape validée !'); setProgress(8);
-  } else {
-    alert("Ce n’est pas encore ça. Pense à César : décale les lettres…");
-  }
-}
-
-/* -------- Fullscreen Map (11) -------- */
-function openMapFullscreen(){
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-  const overlay = document.createElement('div');
-  overlay.className = 'fsOverlay solidBg';
-  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
-  overlay.style.zIndex = 99999;
-  const inner = document.createElement('div'); inner.className = 'fsInner';
-  const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
-  const torch = document.createElement('div'); torch.className='torch';
-  torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','160px');
-  const close = document.createElement('button'); close.className='fsClose xonly'; close.textContent='✖'; close.setAttribute('aria-label','Fermer la carte');
-  inner.appendChild(img); inner.appendChild(torch); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
-  const move=(x,y)=>{ const rect=inner.getBoundingClientRect(); const rx=x-rect.left; const ry=y-rect.top; const r=Math.max(130,Math.min(240,Math.min(rect.width,rect.height)*0.20)); torch.style.setProperty('--r',r+'px'); torch.style.setProperty('--x',rx+'px'); torch.style.setProperty('--y',ry+'px'); };
-  overlay.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
-  overlay.addEventListener('touchmove', e=>{ const t=e.touches[0]; move(t.clientX,t.clientY); e.preventDefault(); }, {passive:false});
-  const closeAll=()=>{ document.body.removeChild(overlay); document.body.style.overflow = prevOverflow; };
-  close.addEventListener('click', closeAll);
-}
-function showMapButton(){
-  const wrap = qs('#mapWrap'); if(wrap){ wrap.style.display='none'; }
-  const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
-  const btn = document.createElement('button'); btn.id='mapOpenBtn'; btn.textContent='📜 Ouvrir la carte (plein écran)'; btn.onclick=openMapFullscreen;
-  qs('#story').after(btn);
 }
 
 /* -------- Texts -------- */
@@ -212,13 +210,13 @@ const TEXTS = {
   6: "« Ah… tu as trouvé ma source secrète, oubliée de beaucoup. À présent, fais l’inverse : cherche un endroit sec… où les calories dorment à l’abri de la pluie. »",
   7: "« L’odeur du bois sec… presque aussi bonne que celle du pain chaud. Remplis la grille, et observe les lettres qui se tiennent bien droites : elles te révéleront un objet que j’ai toujours gardé près de moi. »",
   8: "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »\n\nTexte chiffré :\nJDPH RI VWRQH\n\n⤷ Écris ci‑dessous la phrase déchiffrée pour valider.",
-  9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Derrière, tu trouveras un morceau de vérité… et une énigme qui te fera lever les yeux… et peut‑être les pieds. »",
-  10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa gauche un recoin non scellé. Derrière, ton destin t’attend. »",
+  9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Devant tu verras… et peut‑être les pieds si tu y sautes. Mais le secret n’est pas dessus. »",
+  10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa droite un recoin non scellé. Derrière, ton destin t’attend. »",
   11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Voici ma carte. Touchez le bouton ci‑dessous pour l’explorer à la lampe, en plein écran. »",
-  12:"« Bravo ! Tu as trouvé l’emplacement du trésor. Marque ta victoire… et prépare le terrain pour le prochain aventurier. »"
+  12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer. »"
 };
 
-/* -------- Render -------- */
+/* -------- Render (same locking/back-scan as before) -------- */
 function render(){
   const step = getStepFromURL();
   const progress = getProgress();
@@ -226,34 +224,25 @@ function render(){
   const stepNum = qs('#stepNum');
   if(stepNum) stepNum.textContent = step;
 
-  // Reset sections
+  // reset UI
   document.querySelectorAll('.lock').forEach(n=>n.remove());
-  qs('#codeGate').style.display='none';
-  qs('#crossword').style.display='none';
-  qs('#caesarBox').style.display='none';
+  const cg = qs('#codeGate'); if(cg) cg.style.display='none';
+  const cw = qs('#crossword'); if(cw) cw.style.display='none';
+  const cz = qs('#caesarBox'); if(cz) cz.style.display='none';
   const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
 
-  // Show text safely
-  const fallback = "Bienvenue dans l’aventure d’Auguste Le Du. Si ce message apparaît, rechargez la page ou videz le cache (ou ouvrez un onglet privé).";
-  story.textContent = TEXTS[step] || TEXTS[1] || fallback;
+  story.textContent = TEXTS[step] || TEXTS[1];
 
-  // Backfill gates if user had already progressed before update
-  if(progress>=5 && !getGate('gate4')) setGate('gate4');
-
-  // Step 1 init
   if(step===1){
     if(progress<1) setProgress(1);
-    debugOverlay(step, progress);
     return;
   }
 
-  // Locking
   if(step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
     story.after(lock);
-    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
-    debugOverlay(step, progress);
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = True;
     return;
   }
 
@@ -269,27 +258,24 @@ function render(){
     setProgress(step);
   }
 
-  // Gates
   if(step===4){
-    if(!getGate('gate4')){
-      qs('#codeGate').style.display='block';
-      const input = qs('#codeInput'); input.value=''; input.focus();
+    if(!localStorage.getItem('auguste_gate4')){
+      cg.style.display='block'; const input = qs('#codeInput'); input.value=''; input.focus();
     } else {
-      // gate already passed; ensure progress moves on if needed
       if(progress<4) setProgress(4);
     }
   }
-  if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
-  if(step===8){ qs('#caesarBox').style.display='block'; }
+  if(step===7){ cw.style.display='block'; buildCrossword(cw); }
+  if(step===8){ cz.style.display='block'; }
   if(step===11){ showMapButton(); }
-
-  debugOverlay(step, progress);
 }
 
 function validateCode(){
   const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
   if(v===CODE_GATES[4].value){
-    setGate('gate4'); setProgress(Math.max(getProgress(),4)); playItem();
+    localStorage.setItem('auguste_gate4','ok');
+    setProgress(Math.max(getProgress(),4));
+    playItem();
     alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
     qs('#codeGate').style.display='none';
   } else {
