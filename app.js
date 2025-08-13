@@ -1,9 +1,9 @@
 
-// v7.6.1R5: Always show step 4 code input (UI) even if progress <3, but scanning step 5 stays blocked until validation.
-// Strict progression still applies for other steps.
+// v7.6.1R6: Step 7 clues text updated + humorous message after CANNE found.
+// Keep R5 logic for step 4 gate and progression.
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.1R5';
+const VERSION = '2025-08-13-v7.6.1R6';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -80,7 +80,6 @@ function handleScannedURL(urlStr){
       return;
     }
     if(stepParam === progress + 1){
-      // Allow step+1 as usual
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
@@ -103,7 +102,7 @@ function buildCrossword(container){
       inp.addEventListener('input', (e)=>{
         let v=(e.target.value||'').toUpperCase().replace(/[^A-Z]/g,'');
         if(v.length>1) v=v.slice(-1);
-        e.target.value=v; // replace existing, no multi-char
+        e.target.value=v;
         if(v && c<CW_SIZE-1){
           const next=container.querySelector('input[data-r="'+r+'"][data-c="'+(c+1)+'"]');
           if(next) next.focus();
@@ -115,7 +114,7 @@ function buildCrossword(container){
   container.appendChild(grid);
   const clues = document.createElement('div');
   clues.className='clues';
-  clues.innerHTML="<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges du lavoir • 4) Chariot de ferme • 5) Partie de la plante";
+  clues.innerHTML="<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges de marais • 4) Chariot de tracteur • 5) Partie de la plante";
   container.appendChild(clues);
   const btn = document.createElement('button');
   btn.textContent="Valider la grille";
@@ -138,7 +137,7 @@ function buildCrossword(container){
       }
     }
     playItem();
-    alert("✅ Mot secret révélé : CANNE. Étape validée !");
+    alert("✅ Mot secret révélé : CANNE.\nBravos ! Maintenant, cherche ma canne… Elle est comme moi : droite, fière, et elle grince un peu du genou !");
     setProgress(7);
   };
   container.appendChild(btn);
@@ -207,7 +206,7 @@ const TEXTS = {
   12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer. »"
 };
 
-/* -------- Render (show step 4 UI even if future-locked) -------- */
+/* -------- Render -------- */
 function render(){
   const step = getStepFromURL();
   const progress = getProgress();
@@ -230,11 +229,10 @@ function render(){
     return;
   }
 
-  // Special case: always show step 4 input UI
+  // step 4 UI visible whatever the progress (like R5)
   if(step===4){
     cg.style.display='block';
     const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
-    // If user is too early, show a small hint but still allow entering code.
     if(progress<3){
       const warn = document.createElement('div'); warn.className='lock';
       warn.textContent = "Astuce : normalement on atteint cette étape après le panier d’œufs. Tu peux tout de même entrer le code si tu l’as.";
@@ -242,7 +240,7 @@ function render(){
     }
   }
 
-  // Block future jumps (except we still let 4 render its UI)
+  // Block future jumps (except 4 where we still render the UI)
   if(step !== 4 && step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
@@ -273,7 +271,6 @@ function render(){
 function validateCode(){
   const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
   if(v==='1024'){
-    // Ensure progress jumps to 4, even if user arrived early
     const p=getProgress();
     if(p<3) setProgress(3);
     setProgress(4);
