@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Le Dernier Secret d’Auguste Le Du</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=7.5" />
   <meta name="theme-color" content="#d9c79a" />
 </head>
 <body onload="loadSounds(); setupUploadScan();">
@@ -21,6 +21,7 @@
       <p id="story"></p>
 
       <div class="codegate" id="codeGate">
+        <label for="codeInput" class="small">Code requis :</label>
         <input id="codeInput" type="text" inputmode="numeric" placeholder="••••" maxlength="10" />
         <button onclick="validateCode()">Valider</button>
       </div>
@@ -33,14 +34,7 @@
         <button onclick="validateCaesar()">Valider</button>
       </div>
 
-      <div class="mapWrap" id="mapWrap">
-        <div class="mapFrame">
-          <div class="mapInner" id="mapInner">
-            <img src="assets/carte2025.png" alt="Carte au trésor" />
-          </div>
-        </div>
-        <div class="mapHint">Touchez pour zoomer/dézoomer • Faites glisser la “lampe” pour explorer</div>
-      </div>
+      <div class="mapWrap" id="mapWrap" style="display:none"></div>
 
       <div class="tools">
         <button id="scanBtn" onclick="startScanner()">📷 Scanner un QR</button>
@@ -65,6 +59,6 @@
       </div>
     </div>
   </div>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=7.5"></script>
 </body>
 </html>

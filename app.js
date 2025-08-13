@@ -1,9 +1,9 @@
 
-// v7.4: Step 11 shows ONLY a button "Ouvrir la carte", then fullscreen torch map.
-// Keeps v7.2 progression locks and v7.3 fullscreen torch behavior.
+// v7.5: step-4 code 1024 restored; strict progression; crossword step7; Caesar step8;
+// step11 fullscreen torch opened by button; sounds kept.
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.4';
+const VERSION = '2025-08-13-v7.5';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -204,22 +204,15 @@ function openMapFullscreen(){
 }
 
 function showMapButton(){
-  // Remove inline map if present
-  const mapWrap = qs('#mapWrap');
-  if(mapWrap){ mapWrap.style.display='none'; }
-
-  // Insert an "open map" button just after the story text
+  // Clear inline map container
+  const mapWrap = qs('#mapWrap'); if(mapWrap){ mapWrap.innerHTML=''; mapWrap.style.display='none'; }
+  // Add button under story
   const btn = document.createElement('button');
   btn.textContent = '📜 Ouvrir la carte (plein écran)';
-  btn.onclick = openMapFullscreen;
-
-  // avoid duplicate button on re-render
-  const old = document.getElementById('mapOpenBtn');
-  if(old) old.remove();
   btn.id = 'mapOpenBtn';
-
-  const story = qs('#story');
-  story.after(btn);
+  btn.onclick = openMapFullscreen;
+  const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
+  qs('#story').after(btn);
 }
 
 const gated = new Set([4,7,8]);
@@ -248,7 +241,7 @@ function render(){
   qs('#codeGate').style.display='none';
   qs('#crossword').style.display='none';
   qs('#caesarBox').style.display='none';
-  const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none'; // never show inline map now
+  const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
   story.textContent = TEXTS[step] || '';
 
   if(step===1){
@@ -263,7 +256,6 @@ function render(){
       return;
     }
     // auto-validate non-gated steps when they are exactly the next step
-    const gated = new Set([4,7,8]);
     if(step === progress + 1 && !gated.has(step)){
       setProgress(step);
     }
@@ -271,6 +263,17 @@ function render(){
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
     if(step===11){ showMapButton(); }
+  }
+}
+
+function validateCode(){
+  const input = qs('#codeInput'); const v=(input.value||'').trim();
+  if(v===CODE_GATES[4].value){
+    setProgress(4); playItem();
+    alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
+    qs('#codeGate').style.display='none';
+  } else {
+    alert('Mauvais code.');
   }
 }
 
