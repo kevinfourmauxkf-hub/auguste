@@ -1,8 +1,8 @@
 
-// v7.6.3: smaller torch; text updates (steps 8,9,10,12)
+// v7.6.4: fix boolean typo (true vs True) + harden step-4 display
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.3';
+const VERSION = '2025-08-13-v7.6.4';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -90,7 +90,7 @@ function handleScannedURL(urlStr){
   }catch{ alert("Lien QR invalide."); }
 }
 
-/* -------- Fullscreen Map (smaller torch) -------- */
+/* -------- Map (unchanged from 7.6.3) -------- */
 function openMapFullscreen(){
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -101,14 +101,12 @@ function openMapFullscreen(){
   const inner = document.createElement('div'); inner.className = 'fsInner';
   const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
   const torch = document.createElement('div'); torch.className='torch';
-  // smaller default radius
   torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','110px');
   const close = document.createElement('button'); close.className='fsClose xonly'; close.textContent='✖'; close.setAttribute('aria-label','Fermer la carte');
   inner.appendChild(img); inner.appendChild(torch); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
   const move=(x,y)=>{
     const rect=inner.getBoundingClientRect();
     const rx=x-rect.left; const ry=y-rect.top;
-    // smaller factor (0.12) and caps
     const r=Math.max(90, Math.min(170, Math.min(rect.width,rect.height)*0.12));
     torch.style.setProperty('--r',r+'px'); torch.style.setProperty('--x',rx+'px'); torch.style.setProperty('--y',ry+'px');
   };
@@ -134,16 +132,14 @@ function validateCaesar(){
   const input = qs('#caesarInput');
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
-    playItem(); localStorage.setItem('auguste_gate8','ok');
-    alert('✅ Bien joué. Étape validée !');
-    setProgress(8);
+    try{ localStorage.setItem('auguste_gate8','ok'); }catch(e){}
+    playItem(); alert('✅ Bien joué. Étape validée !'); setProgress(8);
   } else {
-    // harsher fail text, no hint
     alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
   }
 }
 
-/* -------- Crossword (7) unchanged -------- */
+/* -------- Crossword (7) -------- */
 const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
 const CW_SIZE = 5;
 function buildCrossword(container){
@@ -192,8 +188,8 @@ function buildCrossword(container){
         cell.disabled=true;
       }
     }
+    try{ localStorage.setItem('auguste_gate7','ok'); }catch(e){}
     playItem();
-    localStorage.setItem('auguste_gate7','ok');
     alert("✅ Mot secret révélé : CANNE. Étape validée !");
     setProgress(7);
   };
@@ -216,7 +212,7 @@ const TEXTS = {
   12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer. »"
 };
 
-/* -------- Render (same locking/back-scan as before) -------- */
+/* -------- Render -------- */
 function render(){
   const step = getStepFromURL();
   const progress = getProgress();
@@ -242,7 +238,7 @@ function render(){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
     story.after(lock);
-    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = True;
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true; // <-- fixed boolean
     return;
   }
 
@@ -260,7 +256,8 @@ function render(){
 
   if(step===4){
     if(!localStorage.getItem('auguste_gate4')){
-      cg.style.display='block'; const input = qs('#codeInput'); input.value=''; input.focus();
+      cg.style.display='block';
+      const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
     } else {
       if(progress<4) setProgress(4);
     }
@@ -273,11 +270,11 @@ function render(){
 function validateCode(){
   const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
   if(v===CODE_GATES[4].value){
-    localStorage.setItem('auguste_gate4','ok');
+    try{ localStorage.setItem('auguste_gate4','ok'); }catch(e){}
     setProgress(Math.max(getProgress(),4));
     playItem();
     alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
-    qs('#codeGate').style.display='none';
+    const cg = qs('#codeGate'); if(cg) cg.style.display='none';
   } else {
     alert('Mauvais code.');
   }
