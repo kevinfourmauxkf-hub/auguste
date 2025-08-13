@@ -1,8 +1,8 @@
 
-// v7.1 progression fix: auto-validate non-gated steps
+// v7.2 progression fix
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.1';
+const VERSION = '2025-08-13-v7.2';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
@@ -200,19 +200,25 @@ function render(){
   qs('#mapWrap').style.display='none';
   story.textContent = TEXTS[step] || '';
 
-  // Strict progression with auto-complete for non-gated steps
-  const gated = new Set([4,7,8]); // steps that require explicit validation
+  const gated = new Set([4,7,8]);
+
   if(step===1){
     if(progress<1) setProgress(1);
   } else {
-    if(step > progress + 1){
+    const lockNeeded = step > (progress + 1);
+    if(lockNeeded){
       const lock = document.createElement('div'); lock.className='lock';
       lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
-      story.after(lock); return;
+      story.after(lock);
+      // désactive le scanner pour éviter la confusion
+      const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
+      return;
     }
-    // If current step is NOT gated, mark it as completed immediately on visit
-    if(!gated.has(step) && progress < step){ setProgress(step); }
-    // Show step-specific widgets
+    // Si on est exactement sur la prochaine étape et qu'elle n'est pas verrouillée → auto-valider
+    if(step === progress + 1 && !gated.has(step)){
+      setProgress(step);
+    }
+    // Widgets spécifiques
     if(step===4){ qs('#codeGate').style.display='block'; }
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
