@@ -1,16 +1,13 @@
 
-// v7.2 progression fix
+// v7.3: fullscreen map with torch (no page scroll while exploring) + keep v7.2 progression
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.2';
+const VERSION = '2025-08-13-v7.3';
 const CODE_GATES = { 4: { value: '1024' } };
 let SND_ITEM, SND_PAPER;
 function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
 function playItem(){ try{ SND_ITEM && SND_ITEM.play(); }catch(e){} }
 function playPaper(){ try{ SND_PAPER && SND_PAPER.play(); }catch(e){} }
-
-const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-const CW_SIZE = 5;
 
 function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
@@ -81,6 +78,9 @@ function handleScannedURL(urlStr){
   }catch{ alert("Lien QR invalide."); }
 }
 
+/* -------- Crosswords (step 7) -------- */
+const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
+const CW_SIZE = 5;
 function buildCrossword(container){
   container.innerHTML = '';
   const grid = document.createElement('div');
@@ -134,6 +134,7 @@ function buildCrossword(container){
   container.appendChild(btn);
 }
 
+/* -------- Caesar (step 8) -------- */
 function setupCaesar(){
   const box = qs('#caesarBox');
   box.style.display='block';
@@ -149,29 +150,71 @@ function validateCaesar(){
   }
 }
 
+/* -------- Fullscreen Map with Torch (step 11) -------- */
+function openMapFullscreen(){
+  // prevent page scroll
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fsOverlay';
+  overlay.setAttribute('role','dialog');
+  overlay.setAttribute('aria-modal','true');
+
+  const inner = document.createElement('div');
+  inner.className = 'fsInner flashlight';
+
+  const img = document.createElement('img');
+  img.src = 'assets/carte2025.png';
+  img.alt = 'Carte au trésor';
+
+  const close = document.createElement('button');
+  close.className = 'fsClose';
+  close.textContent = 'Fermer ❌';
+
+  inner.appendChild(img);
+  inner.appendChild(close);
+  overlay.appendChild(inner);
+  document.body.appendChild(overlay);
+
+  const move=(x,y)=>{
+    const rect = inner.getBoundingClientRect();
+    // spotlight radius proportional to viewport
+    const r = Math.max(120, Math.min(220, Math.min(rect.width, rect.height)*0.18));
+    inner.style.setProperty('--r', r+'px');
+    inner.style.setProperty('--x', (x - rect.left) + 'px');
+    inner.style.setProperty('--y', (y - rect.top) + 'px');
+  };
+  const onMouseMove = (e)=>{ move(e.clientX, e.clientY); };
+  const onTouchMove = (e)=>{
+    const t=e.touches[0]; move(t.clientX, t.clientY);
+    e.preventDefault(); // stop page scroll
+  };
+
+  overlay.addEventListener('mousemove', onMouseMove);
+  overlay.addEventListener('touchmove', onTouchMove, {passive:false});
+
+  const closeAll = ()=>{
+    overlay.removeEventListener('mousemove', onMouseMove);
+    overlay.removeEventListener('touchmove', onTouchMove);
+    document.body.removeChild(overlay);
+    document.body.style.overflow = prevOverflow;
+  };
+  close.addEventListener('click', closeAll);
+  overlay.addEventListener('click', (e)=>{
+    // click outside inner closes too
+    if(e.target === overlay) closeAll();
+  });
+}
+
 function setupMapViewer(){
   const wrap = qs('#mapWrap'); wrap.style.display='block';
-  const inner = qs('#mapInner');
-  // Zoom toggle
-  let zoom=false;
-  wrap.addEventListener('click',function(){ zoom=!zoom; inner.classList.toggle('zoom', zoom); });
-  // Flashlight mask
-  inner.classList.add('flashlight');
-  const move=function(x,y){
-    const r = Math.max(90, Math.min(180, Math.min(inner.clientWidth, inner.clientHeight)*0.18));
-    inner.style.setProperty('--r', r+'px');
-    inner.style.setProperty('--x', x+'px');
-    inner.style.setProperty('--y', y+'px');
-  };
-  wrap.addEventListener('mousemove',function(e){
-    const rect=inner.getBoundingClientRect();
-    move(e.clientX-rect.left, e.clientY-rect.top);
-  });
-  wrap.addEventListener('touchmove',function(e){
-    const t=e.touches[0]; const rect=inner.getBoundingClientRect();
-    move(t.clientX-rect.left, t.clientY-rect.top);
-  }, {passive:true});
+  const frame = wrap.querySelector('.mapFrame');
+  // Single tap/click opens full-screen viewer
+  frame.addEventListener('click', openMapFullscreen);
 }
+
+const gated = new Set([4,7,8]);
 
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
@@ -184,7 +227,7 @@ const TEXTS = {
   8: "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »\n\nTexte chiffré :\nJDPH RI VWRQH\n\n⤷ Écris ci‑dessous la phrase déchiffrée pour valider.",
   9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Derrière, tu trouveras un morceau de vérité… et une énigme qui te fera lever les yeux… et peut‑être les pieds. »",
   10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa gauche un recoin non scellé. Derrière, ton destin t’attend. »",
-  11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Cherche une pierre pas comme les autres : ce que tu trouveras ouvrira le dernier secret. »\n\n⤷ Déploie la carte et éclaire‑la à la lampe…",
+  11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Cherche une pierre pas comme les autres : ce que tu trouveras ouvrira le dernier secret. »\n\n⤷ Touchez la carte pour l’explorer en plein écran à la lampe.",
   12:"« Bravo ! Tu as trouvé l’emplacement du trésor. Marque ta victoire… et prépare le terrain pour le prochain aventurier. »"
 };
 
@@ -200,8 +243,6 @@ function render(){
   qs('#mapWrap').style.display='none';
   story.textContent = TEXTS[step] || '';
 
-  const gated = new Set([4,7,8]);
-
   if(step===1){
     if(progress<1) setProgress(1);
   } else {
@@ -210,26 +251,18 @@ function render(){
       const lock = document.createElement('div'); lock.className='lock';
       lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
       story.after(lock);
-      // désactive le scanner pour éviter la confusion
       const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
       return;
     }
-    // Si on est exactement sur la prochaine étape et qu'elle n'est pas verrouillée → auto-valider
+    // auto-validate non-gated steps when they are exactly the next step
     if(step === progress + 1 && !gated.has(step)){
       setProgress(step);
     }
-    // Widgets spécifiques
     if(step===4){ qs('#codeGate').style.display='block'; }
     if(step===7){ const cw=qs('#crossword'); cw.style.display='block'; buildCrossword(cw); }
     if(step===8){ qs('#caesarBox').style.display='block'; }
     if(step===11){ setupMapViewer(); }
   }
-}
-
-function validateCode(){
-  const input = qs('#codeInput'); const v=(input.value||'').trim();
-  if(v===CODE_GATES[4].value){ setProgress(4); playItem(); alert("✅ Étape 4 validée. Tu peux scanner la suivante."); qs('#codeGate').style.display='none'; }
-  else alert('Mauvais code.');
 }
 
 window.addEventListener('DOMContentLoaded', render);
