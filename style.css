@@ -37,7 +37,7 @@ padding:6px 10px;border-radius:8px;font-size:16px}
 .grid input.ok{background:#e8f7df;border-color:#8dc27a}
 .grid input.hl{background:#ffeaa7;border-color:#e0b359}
 .clues{margin-top:10px;font-size:16px;color:#4a3a24}
-/* Caesar step */
+/* Caesar */
 .caesar{display:none;margin-top:12px;padding:16px;border:1px dashed #8d6a46;border-radius:12px;background:#f9f0d9}
 .cipher{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:34px;letter-spacing:6px;text-align:center;margin:8px auto 12px auto;padding:14px 10px;border:1px solid #c8b48c;border-radius:10px;background:#fffaf0;box-shadow:inset 0 0 20px rgba(0,0,0,.06),0 6px 14px rgba(0,0,0,.06)}
 .caesar input{padding:10px;font-size:18px;border-radius:10px;border:1px solid #bba37c;width:100%;max-width:520px;display:block;margin:0 auto}

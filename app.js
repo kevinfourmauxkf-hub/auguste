@@ -1,8 +1,9 @@
 
-// v7.6.5: strict pre-req gates (5→gate4, 8→gate7, 9→gate8) + robust step-4 display
+// v7.6.1R5: Always show step 4 code input (UI) even if progress <3, but scanning step 5 stays blocked until validation.
+// Strict progression still applies for other steps.
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.5';
+const VERSION = '2025-08-13-v7.6.1R5';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -14,23 +15,12 @@ function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
-
-function getGate(key){ return localStorage.getItem('auguste_'+key)==='ok'; }
-function setGate(key){ localStorage.setItem('auguste_'+key, 'ok'); }
-
-function resetProgress(){ localStorage.removeItem('auguste_progress'); ['gate4','gate7','gate8'].forEach(k=>localStorage.removeItem('auguste_'+k)); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
-
-function requireGateForStep(step){
-  // Step you are TRYING to open must satisfy certain pre-req gates
-  if(step>=5 && !getGate('gate4')) return {ok:false, need:'4'};
-  if(step>=8 && !getGate('gate7')) return {ok:false, need:'7'};
-  if(step>=9 && !getGate('gate8')) return {ok:false, need:'8'};
-  return {ok:true};
-}
+function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
 
 async function startScanner(){
   const step = getStepFromURL();
   const progress = getProgress();
+  if(step===9 && progress<8){ alert("Tu dois d’abord valider l’étape 8 avant de pouvoir scanner la suivante."); return; }
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){
@@ -85,30 +75,92 @@ function handleScannedURL(urlStr){
     const stepParam = parseInt(new URLSearchParams(url.search).get('step')||'0',10);
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
-
-    // Allow reopening past steps
     if(stepParam <= progress){
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
-
-    // Next step only, with pre-req gates
     if(stepParam === progress + 1){
-      const gate = requireGateForStep(stepParam);
-      if(!gate.ok){
-        alert("Tu dois d’abord valider l’étape "+gate.need+" avant d’ouvrir celle‑ci.");
-        return;
-      }
+      // Allow step+1 as usual
       window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
-
-    // Too far ahead
     alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
   }catch{ alert("Lien QR invalide."); }
 }
 
-/* -------- Map (unchanged from 7.6.4) -------- */
+/* -------- Crossword (7) -------- */
+const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
+const CW_SIZE = 5;
+function buildCrossword(container){
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for(let r=0;r<CW_SIZE;r++){
+    for(let c=0;c<CW_SIZE;c++){
+      const inp = document.createElement('input');
+      inp.maxLength = 1; inp.autocomplete='off'; inp.spellcheck=false;
+      inp.setAttribute('data-r', r); inp.setAttribute('data-c', c);
+      inp.addEventListener('input', (e)=>{
+        let v=(e.target.value||'').toUpperCase().replace(/[^A-Z]/g,'');
+        if(v.length>1) v=v.slice(-1);
+        e.target.value=v; // replace existing, no multi-char
+        if(v && c<CW_SIZE-1){
+          const next=container.querySelector('input[data-r="'+r+'"][data-c="'+(c+1)+'"]');
+          if(next) next.focus();
+        }
+      });
+      grid.appendChild(inp);
+    }
+  }
+  container.appendChild(grid);
+  const clues = document.createElement('div');
+  clues.className='clues';
+  clues.innerHTML="<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges du lavoir • 4) Chariot de ferme • 5) Partie de la plante";
+  container.appendChild(clues);
+  const btn = document.createElement('button');
+  btn.textContent="Valider la grille";
+  btn.style.marginTop='10px';
+  btn.onclick=()=>{
+    const target=["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
+    for(let r=0;r<CW_SIZE;r++){
+      let row='';
+      for(let c=0;c<CW_SIZE;c++){
+        const val=(grid.children[r*CW_SIZE+c].value||' ').toUpperCase();
+        row+=val;
+      }
+      if(row!==target[r]){ alert("Pas encore bon."); return; }
+    }
+    for(let r=0;r<CW_SIZE;r++){
+      for(let c=0;c<CW_SIZE;c++){
+        const cell=grid.children[r*CW_SIZE+c];
+        if(c===2) cell.classList.add('hl'); else cell.classList.add('ok');
+        cell.disabled=true;
+      }
+    }
+    playItem();
+    alert("✅ Mot secret révélé : CANNE. Étape validée !");
+    setProgress(7);
+  };
+  container.appendChild(btn);
+}
+
+/* -------- Caesar (8) -------- */
+function setupCaesar(){
+  const box = qs('#caesarBox');
+  box.style.display='block';
+  const input = qs('#caesarInput'); input.value='';
+}
+function validateCaesar(){
+  const input = qs('#caesarInput');
+  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
+  if(v==='GAME OF STONES'){
+    playItem(); alert('✅ Bien joué. Étape validée !'); setProgress(8);
+  } else {
+    alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
+  }
+}
+
+/* -------- Fullscreen Map (11) -------- */
 function openMapFullscreen(){
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -134,88 +186,12 @@ function openMapFullscreen(){
   close.addEventListener('click', closeAll);
 }
 function showMapButton(){
-  const wrap = qs('#mapWrap'); if(wrap){ wrap.style.display='none'; }
   const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
   const btn = document.createElement('button'); btn.id='mapOpenBtn'; btn.textContent='📜 Ouvrir la carte (plein écran)'; btn.onclick=openMapFullscreen;
   qs('#story').after(btn);
 }
 
-/* -------- Caesar (8) -------- */
-function setupCaesar(){
-  const box = qs('#caesarBox');
-  box.style.display='block';
-  const input = qs('#caesarInput'); input.value='';
-}
-function validateCaesar(){
-  const input = qs('#caesarInput');
-  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
-  if(v==='GAME OF STONES'){
-    try{ localStorage.setItem('auguste_gate8','ok'); }catch(e){}
-    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
-    alert('✅ Bien joué. Étape validée !'); setProgress(8);
-  } else {
-    alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
-  }
-}
-
-/* -------- Crossword (7) -------- */
-const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-const CW_SIZE = 5;
-function buildCrossword(container){
-  container.innerHTML = '';
-  const grid = document.createElement('div');
-  grid.className = 'grid';
-  for(let r=0;r<CW_SIZE;r++){
-    for(let c=0;c<CW_SIZE;c++){
-      const inp = document.createElement('input');
-      inp.maxLength = 1; inp.autocomplete='off'; inp.spellcheck=false;
-      inp.setAttribute('data-r', r); inp.setAttribute('data-c', c);
-      inp.addEventListener('input', (e)=>{
-        let v=(e.target.value||'').toUpperCase().replace(/[^A-Z]/g,'');
-        if(v.length>1) v=v.slice(-1);
-        e.target.value=v;
-        if(v && c<CW_SIZE-1){
-          const next=container.querySelector('input[data-r="'+r+'"][data-c="'+(c+1)+'"]');
-          if(next) next.focus();
-        }
-      });
-      grid.appendChild(inp);
-    }
-  }
-  container.appendChild(grid);
-  const clues = document.createElement('div');
-  clues.className='clues';
-  clues.innerHTML="<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges du lavoir • 4) Chariot de ferme • 5) Partie de la plante";
-  container.appendChild(clues);
-  const btn = document.createElement('button');
-  btn.textContent="Valider la grille";
-  btn.style.marginTop='10px';
-  btn.onclick=()=>{
-    const target=["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-    for(let r=0;r<CW_SIZE;r++){
-      let row='';
-      for(let c=0;c<CW_SIZE;c++){
-        const val=(grid.children[r*CW_SIZE+c].value||' ').toUpperCase();
-        row+=val;
-      }
-      if(row!==target[r]){ alert("Pas encore bon. Indice : ferme, champ, lavoir, charrette, botanique."); return; }
-    }
-    for(let r=0;r<CW_SIZE;r++){
-      for(let c=0;c<CW_SIZE;c++){
-        const cell=grid.children[r*CW_SIZE+c];
-        if(c===2) cell.classList.add('hl'); else cell.classList.add('ok');
-        cell.disabled=true;
-      }
-    }
-    try{ localStorage.setItem('auguste_gate7','ok'); }catch(e){}
-    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
-    alert("✅ Mot secret révélé : CANNE. Étape validée !");
-    setProgress(7);
-  };
-  container.appendChild(btn);
-}
-
-/* -------- Texts (kept from 7.6.4) -------- */
+/* -------- Texts -------- */
 const TEXTS = {
   1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
   2: "« Elle a nourri plus de ventres que le curé n’a donné de sermons ! Regarde‑la bien, mais sache que ce que tu cherches n’est pas pour tes yeux seuls… Cherche à voir autrement, comme la chouette qui chasse sous la lune. »",
@@ -231,7 +207,7 @@ const TEXTS = {
   12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer. »"
 };
 
-/* -------- Render -------- */
+/* -------- Render (show step 4 UI even if future-locked) -------- */
 function render(){
   const step = getStepFromURL();
   const progress = getProgress();
@@ -239,38 +215,35 @@ function render(){
   const stepNum = qs('#stepNum');
   if(stepNum) stepNum.textContent = step;
 
-  // reset UI
+  // reset sections
   document.querySelectorAll('.lock').forEach(n=>n.remove());
-  const cg = qs('#codeGate'); if(cg) cg.style.display='none';
-  const cw = qs('#crossword'); if(cw) cw.style.display='none';
-  const cz = qs('#caesarBox'); if(cz) cz.style.display='none';
+  const cg = qs('#codeGate'); cg.style.display='none';
+  const cw = qs('#crossword'); cw.style.display='none';
+  const cz = qs('#caesarBox'); cz.style.display='none';
   const mapWrap = qs('#mapWrap'); if(mapWrap) mapWrap.style.display='none';
 
-  story.textContent = TEXTS[step] || TEXTS[1];
+  const fallback = "Bienvenue dans l’aventure d’Auguste Le Du. Si ce message apparaît, rechargez la page.";
+  story.textContent = TEXTS[step] || TEXTS[1] || fallback;
 
-  // Step-1 init
   if(step===1){
     if(progress<1) setProgress(1);
     return;
   }
 
-  // Hard lock if pre-req missing for the currently opened step
-  const gate = requireGateForStep(step);
-  if(!gate.ok){
-    const lock = document.createElement('div'); lock.className='lock';
-    lock.textContent = "Tu dois d’abord valider l’étape "+gate.need+".";
-    story.after(lock);
-    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
-    // Show gate UI if it's step 4
-    if(gate.need==='4' && step===4){
-      cg.style.display='block';
-      const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
+  // Special case: always show step 4 input UI
+  if(step===4){
+    cg.style.display='block';
+    const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
+    // If user is too early, show a small hint but still allow entering code.
+    if(progress<3){
+      const warn = document.createElement('div'); warn.className='lock';
+      warn.textContent = "Astuce : normalement on atteint cette étape après le panier d’œufs. Tu peux tout de même entrer le code si tu l’as.";
+      story.after(warn);
     }
-    return;
   }
 
-  // Normal lock for jumping too far
-  if(step > progress + 1){
+  // Block future jumps (except we still let 4 render its UI)
+  if(step !== 4 && step > progress + 1){
     const lock = document.createElement('div'); lock.className='lock';
     lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
     story.after(lock);
@@ -278,7 +251,7 @@ function render(){
     return;
   }
 
-  // Info if revisiting older step
+  // Info for revisits
   if(step < progress){
     const info = document.createElement('div'); info.className='lock';
     info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
@@ -286,35 +259,28 @@ function render(){
     story.after(info);
   }
 
-  // Auto-validate non-gated when it's exactly the next step
+  // Auto-progress for non-gated steps
   const gated = new Set([4,7,8]);
   if(step === progress + 1 && !gated.has(step)){
     setProgress(step);
   }
 
-  // Show special UIs
-  if(step===4){
-    if(!getGate('gate4')){
-      cg.style.display='block';
-      const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
-    } else if(progress<4){ setProgress(4); }
-  }
   if(step===7){ cw.style.display='block'; buildCrossword(cw); }
-  if(step===8){ cz.style.display='block'; }
+  if(step===8){ cz.style.display='block'; setupCaesar(); }
   if(step===11){ showMapButton(); }
 }
 
 function validateCode(){
   const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
-  if(v===CODE_GATES[4].value){
-    try{ localStorage.setItem('auguste_gate4','ok'); }catch(e){}
-    setProgress(Math.max(getProgress(),4));
-    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
+  if(v==='1024'){
+    // Ensure progress jumps to 4, even if user arrived early
+    const p=getProgress();
+    if(p<3) setProgress(3);
+    setProgress(4);
+    playItem();
     alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
     const cg = qs('#codeGate'); if(cg) cg.style.display='none';
-  } else {
-    alert('Mauvais code.');
-  }
+  } else { alert('Mauvais code.'); }
 }
 
 window.addEventListener('DOMContentLoaded', render);
