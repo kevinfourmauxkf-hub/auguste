@@ -1,9 +1,7 @@
 
-// v7.6.1R8: Step 8 success message toned down per request.
-// Base logic preserved (step 4 gate strict, etc.).
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-13-v7.6.1R8';
+const VERSION = 'FINAL_v1';
 const CODE_GATES = { 4: { value: '1024' } };
 
 let SND_ITEM, SND_PAPER;
@@ -154,7 +152,7 @@ function validateCaesar(){
   let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
   if(v==='GAME OF STONES'){
     playItem();
-    alert("✅ Bien joué ! « GAME OF STONES » n’est pas qu’un caprice d’empereur : c’est l’indice du prochain QR.\nCherche bien mais fait attention à ne pas te retrouver avec les fesses carrées — parole d’Auguste.");
+    alert("✅ Bien joué ! « GAME OF STONES » n’est pas qu’un caprice d’empereur : c’est l’indice du prochain QR.\nCherche bien mais fais attention à ne pas te retrouver avec les fesses carrées — parole d’Auguste.");
     setProgress(8);
   } else {
     alert("Raté ! Si tu échoues encore, César te jettera aux lions.");
@@ -172,13 +170,15 @@ function openMapFullscreen(){
   const inner = document.createElement('div'); inner.className = 'fsInner';
   const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
   const torch = document.createElement('div'); torch.className='torch';
-  torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','110px');
+  // Smaller radius baseline (harder exploration)
+  torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','80px');
   const close = document.createElement('button'); close.className='fsClose xonly'; close.textContent='✖'; close.setAttribute('aria-label','Fermer la carte');
   inner.appendChild(img); inner.appendChild(torch); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
   const move=(x,y)=>{
     const rect=inner.getBoundingClientRect();
     const rx=x-rect.left; const ry=y-rect.top;
-    const r=Math.max(90, Math.min(170, Math.min(rect.width,rect.height)*0.12));
+    // tighter clamp: 60-110 and factor ~0.08 of min
+    const r=Math.max(60, Math.min(110, Math.min(rect.width,rect.height)*0.08));
     torch.style.setProperty('--r',r+'px'); torch.style.setProperty('--x',rx+'px'); torch.style.setProperty('--y',ry+'px');
   };
   overlay.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
@@ -202,10 +202,10 @@ const TEXTS = {
   6: "« Ah… tu as trouvé ma source secrète, oubliée de beaucoup. À présent, fais l’inverse : cherche un endroit sec… où les calories dorment à l’abri de la pluie. »",
   7: "« L’odeur du bois sec… presque aussi bonne que celle du pain chaud. Remplis la grille, et observe les lettres qui se tiennent bien droites : elles te révéleront un objet que j’ai toujours gardé près de moi. »",
   8: "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »\n\nTexte chiffré :\nJDPH RI VWRQH\n\n⤷ Écris ci‑dessous la phrase déchiffrée pour valider.",
-  9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Devant tu verras… et peut‑être les pieds si tu y sautes. Mais le secret n’est pas dessus. »",
-  10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa droite un recoin non scellé. Derrière, ton destin t’attend. »",
+  9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Devant tu verras… là où l’on peut prendre de la hauteur, là où le sol devient non palpable. Mais le secret n’est pas dessus. »",
+  10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa gauche un recoin non scellé. Derrière, ton destin t’attend. »",
   11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Voici ma carte. Touchez le bouton ci‑dessous pour l’explorer à la lampe, en plein écran. »",
-  12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer. »"
+  12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer.\nFIN »"
 };
 
 /* -------- Render -------- */
@@ -216,7 +216,7 @@ function render(){
   const stepNum = qs('#stepNum');
   if(stepNum) stepNum.textContent = step;
 
-  // reset sections
+  // Reset sections
   document.querySelectorAll('.lock').forEach(n=>n.remove());
   const cg = qs('#codeGate'); cg.style.display='none';
   const cw = qs('#crossword'); cw.style.display='none';
@@ -226,44 +226,53 @@ function render(){
   const fallback = "Bienvenue dans l’aventure d’Auguste Le Du. Si ce message apparaît, rechargez la page.";
   story.textContent = TEXTS[step] || TEXTS[1] || fallback;
 
+  // Step-specific UI
   if(step===1){
-    if(progress<1) setProgress(1);
-    return;
+    if(getProgress()<1) setProgress(1);
   }
 
   if(step===4){
     cg.style.display='block';
     const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
-    if(progress<3){
+    if(getProgress()<3){
       const warn = document.createElement('div'); warn.className='lock';
       warn.textContent = "Astuce : normalement on atteint cette étape après le panier d’œufs. Tu peux tout de même entrer le code si tu l’as.";
       story.after(warn);
     }
   }
 
-  if(step !== 4 && step > progress + 1){
+  if(step !== 4 && step > getProgress() + 1){
     const lock = document.createElement('div'); lock.className='lock';
-    lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + ".";
+    lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (getProgress()+1) + ".";
     story.after(lock);
     const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
     return;
   }
 
-  if(step < progress){
+  // Info when revisiting
+  if(step < getProgress()){
     const info = document.createElement('div'); info.className='lock';
     info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
-    info.textContent = "Étape déjà validée. Tu peux relire, ou scanner l’étape " + (progress+1) + " pour poursuivre.";
+    info.textContent = "Étape déjà validée. Tu peux relire, ou scanner l’étape " + (getProgress()+1) + " pour poursuivre.";
     story.after(info);
   }
 
+  // Auto-progress for non-gated steps
   const gated = new Set([4,7,8]);
-  if(step === progress + 1 && !gated.has(step)){
+  if(step === getProgress() + 1 && !gated.has(step)){
     setProgress(step);
   }
 
   if(step===7){ cw.style.display='block'; buildCrossword(cw); }
   if(step===8){ cz.style.display='block'; setupCaesar(); }
   if(step===11){ showMapButton(); }
+
+  // Step 12: hide scan buttons
+  if(step===12){
+    const scanBtn = qs('#scanBtn'); const uploadBtn = qs('#uploadBtn');
+    if(scanBtn) scanBtn.style.display='none';
+    if(uploadBtn) uploadBtn.style.display='none';
+  }
 }
 
 function validateCode(){
