@@ -1,26 +1,22 @@
 
 const TOTAL_STEPS = 12;
 const EXPECTED_HOST = location.host;
-const VERSION = '2025-08-12-crossword-v3-sounds';
-const CODE_GATES = { 4: { value: '1024', prompt: "Entrez le code pour valider cette étape :" } };
-// sounds
-let SND_ITEM, SND_PAPER;
-function loadSounds(){
-  SND_ITEM = new Audio('assets/item.wav');
-  SND_PAPER = new Audio('assets/paper.wav');
-}
+const VERSION = 'final_fix';
+const CODE_GATES = { 4: { value: '1024' } };
 
-const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-const CW_SIZE = 5;
-const CW_HL_COL = 2;
+let SND_ITEM, SND_PAPER;
+function loadSounds(){ SND_ITEM = new Audio('assets/item.wav'); SND_PAPER = new Audio('assets/paper.wav'); }
+function playItem(){ try{ SND_ITEM && SND_ITEM.play(); }catch(e){} }
+function playPaper(){ try{ SND_PAPER && SND_PAPER.play(); }catch(e){} }
 
 function qs(s){ return document.querySelector(s); }
 function getStepFromURL(){ const url = new URL(window.location.href); const s=url.searchParams.get('step'); let n=parseInt(s||'1',10); if(isNaN(n)||n<1||n>TOTAL_STEPS) n=1; return n; }
 function getProgress(){ const v = localStorage.getItem('auguste_progress'); return v?parseInt(v,10):0; }
 function setProgress(s){ const c=getProgress(); if(s>c) localStorage.setItem('auguste_progress', String(s)); }
-function resetProgress(){ localStorage.removeItem('auguste_progress'); window.location.href = window.location.pathname + '?step=1&v='+VERSION; }
 
 async function startScanner(){
+  const step = getStepFromURL();
+  const progress = getProgress();
   const video = qs('#video'), videoWrap = qs('.videoWrap');
   const scanBtn = qs('#scanBtn'), stopBtn = qs('#stopBtn');
   if(!('BarcodeDetector' in window)){
@@ -37,11 +33,7 @@ async function startScanner(){
     const tick = async()=>{
       try{
         const codes = await detector.detect(video);
-        if(codes && codes.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
-          setTimeout(()=>{ handleScannedURL(codes[0].rawValue); }, 120);
-          return;
-        }
+        if(codes && codes.length){ playPaper(); setTimeout(()=>{ handleScannedURL(codes[0].rawValue); }, 120); return; }
       }catch(e){}
       rafId = requestAnimationFrame(tick);
     };
@@ -63,10 +55,7 @@ function setupUploadScan(){
       try{
         const bmp = await createImageBitmap(img);
         const res = await detector.detect(bmp);
-        if(res && res.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
-          setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
-        } else { alert("Aucun QR détecté."); }
+        if(res && res.length){ playPaper(); setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120); } else { alert("Aucun QR détecté."); }
       }catch(err){ alert("Erreur de lecture : "+err.message); }
       finally{ URL.revokeObjectURL(url); }
     };
@@ -82,14 +71,21 @@ function handleScannedURL(urlStr){
     const stepParam = parseInt(new URLSearchParams(url.search).get('step')||'0',10);
     if(!stepParam){ alert("QR invalide."); return; }
     const progress = getProgress();
-    if(stepParam !== progress + 1){
-      alert("Pas encore prêt… scanne d'abord l'étape "+(progress+1)+".");
+    if(stepParam <= progress){
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
       return;
     }
-    window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
+    if(stepParam === progress + 1){
+      window.location.href = url.pathname + '?step=' + stepParam + '&v=' + VERSION;
+      return;
+    }
+    alert("⛔ Ce QR ne peut pas encore être lu. Continue dans l’ordre !");
   }catch{ alert("Lien QR invalide."); }
 }
 
+/* -------- Crossword (7) -------- */
+const CW_ROWS = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
+const CW_SIZE = 5;
 function buildCrossword(container){
   container.innerHTML = '';
   const grid = document.createElement('div');
@@ -97,19 +93,14 @@ function buildCrossword(container){
   for(let r=0;r<CW_SIZE;r++){
     for(let c=0;c<CW_SIZE;c++){
       const inp = document.createElement('input');
-      inp.maxLength = 1;
-      inp.autocomplete = 'off';
-      inp.spellcheck = false;
-      inp.setAttribute('data-r', r);
-      inp.setAttribute('data-c', c);
+      inp.maxLength = 1; inp.autocomplete='off'; inp.spellcheck=false;
+      inp.setAttribute('data-r', r); inp.setAttribute('data-c', c);
       inp.addEventListener('input', (e)=>{
-        // keep only the LAST entered letter (replace existing)
-        let v = (e.target.value || '').toUpperCase().replace(/[^A-Z]/g,'');
-        if(v.length > 1) v = v.slice(-1);
-        e.target.value = v;
-        // auto move to next cell horizontally if non-empty
-        if(v && c < CW_SIZE-1){
-          const next = container.querySelector(`input[data-r="${r}"][data-c="${c+1}"]`);
+        let v=(e.target.value||'').toUpperCase().replace(/[^A-Z]/g,'');
+        if(v.length>1) v=v.slice(-1);
+        e.target.value=v;
+        if(v && c<CW_SIZE-1){
+          const next=container.querySelector('input[data-r="'+r+'"][data-c="'+(c+1)+'"]');
           if(next) next.focus();
         }
       });
@@ -118,117 +109,172 @@ function buildCrossword(container){
   }
   container.appendChild(grid);
   const clues = document.createElement('div');
-  clues.className = 'clues';
-  clues.innerHTML = "<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges du lavoir • 4) Chariot de ferme • 5) Partie de la plante";
+  clues.className='clues';
+  clues.innerHTML="<strong>Définitions (horizontales) — 5 lettres :</strong><br>1) Cervidé des bois • 2) Terre cultivée • 3) Tiges de marais • 4) On peut en trouver à l'arrière des camions • 5) Partie de la plante";
   container.appendChild(clues);
   const btn = document.createElement('button');
-  btn.textContent = "Valider la grille";
-  btn.style.marginTop = '10px';
-  btn.onclick = ()=>{
-    const entries = [];
+  btn.textContent="Valider la grille";
+  btn.style.marginTop='10px';
+  btn.onclick=()=>{
+    const target=["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
     for(let r=0;r<CW_SIZE;r++){
-      let row = '';
+      let row='';
       for(let c=0;c<CW_SIZE;c++){
-        const val = (container.querySelector(`input[data-r="${r}"][data-c="${c}"]`).value||' ').toUpperCase();
-        row += val;
+        const val=(grid.children[r*CW_SIZE+c].value||' ').toUpperCase();
+        row+=val;
       }
-      entries.push(row);
+      if(row!==target[r]){ alert("Pas encore bon."); return; }
     }
-    // Check without revealing answers
-    const target = ["BICHE","CHAMP","JONCS","BENNE","FLEUR"];
-    let ok = true;
-    for(let i=0;i<CW_SIZE;i++){
-      if(entries[i] !== target[i]){ ok = false; break; }
-    }
-    if(!ok){
-      alert("Pas encore bon. Indice : pense à la ferme, au champ, au lavoir, à la charrette et à la botanique.");
-      return;
-    }
-    // Highlight column to show CANNE
     for(let r=0;r<CW_SIZE;r++){
       for(let c=0;c<CW_SIZE;c++){
-        const cell = container.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
-        if(c === 2) cell.classList.add('hl'); else cell.classList.add('ok');
-        cell.disabled = true;
+        const cell=grid.children[r*CW_SIZE+c];
+        if(c===2) cell.classList.add('hl'); else cell.classList.add('ok');
+        cell.disabled=true;
       }
     }
-    try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
-    alert("✅ Mot secret révélé : CANNE. Étape validée !");
+    playItem();
+    alert("✅ Mot secret révélé : CANNE.\nBravos ! Maintenant, cherche ma canne… Elle est comme moi : droite, fière, et elle grince un peu du genou !");
     setProgress(7);
   };
   container.appendChild(btn);
 }
 
-function render(){
-  loadSounds();
-  const step = getStepFromURL();
-  const progress = getProgress();
-  qs('#step').textContent = 'Étape '+step+' / '+TOTAL_STEPS;
-
-  const story = qs('#story'); const lock = qs('#lock');
-  const gateWrap = qs('.codegate'); const gateMsg=qs('#codeMsg'); const gateInput=qs('#codeInput'); const gateBtn=qs('#codeBtn');
-  const cw = qs('.cw');
-  gateWrap.style.display='none'; lock.style.display='none'; story.textContent=''; cw.style.display='none';
-
-  if(step === 1){
-    story.textContent = window.TEXTS[1] || '';
-    if(progress < 1) setProgress(1);
-  }else{
-    if(step > progress + 1){
-      lock.style.display='block'; lock.textContent = "Pas encore prêt… scanne d’abord l’étape " + (progress+1) + "."; return;
-    }
-    if(step <= progress){
-      story.textContent = window.TEXTS[step] || '';
-      return;
-    }
-    // expected next
-    story.textContent = window.TEXTS[step] || '';
-    if(step === 4){
-      gateWrap.style.display='block'; gateMsg.textContent = CODE_GATES[4].prompt; gateInput.value='';
-      gateBtn.onclick = ()=>{
-        const v = (gateInput.value||'').trim();
-        if(v === CODE_GATES[4].value){
-          setProgress(4);
-          gateWrap.style.display='none';
-          try{ SND_ITEM && SND_ITEM.play(); }catch(e){}
-          alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
-        }else{
-          alert('Mauvais code.');
-        }
-      };
-    }else if(step === 7){
-      cw.style.display='block';
-      buildCrossword(cw);
-    }else{
-      setProgress(step);
-    }
+/* -------- Caesar (8) -------- */
+function setupCaesar(){
+  const box = qs('#caesarBox');
+  box.style.display='block';
+  const input = qs('#caesarInput'); input.value='';
+}
+function validateCaesar(){
+  const input = qs('#caesarInput');
+  let v=(input.value||'').toUpperCase().replace(/\s+/g,' ').trim();
+  if(v==='GAME OF STONES'){
+    playItem();
+    alert("✅ Bien joué ! « GAME OF STONES » n’est pas qu’un caprice d’empereur : c’est l’indice du prochain QR.\nCherche bien mais fais attention à ne pas te retrouver avec les fesses carrées — parole d’Auguste.");
+    setProgress(8);
+  } else {
+    alert("Raté ! Si tu ne trouve pas son code, César te jettera aux lions.");
   }
-
-  qs('#scanBtn').onclick = startScanner;
-  qs('#resetBtn').onclick = resetProgress;
-  // upload scan setup
-  const uploadBtn=qs('#uploadBtn'), fileInput=qs('#fileInput');
-  uploadBtn.onclick = ()=>{ qs('.uploadWrap').style.display='block'; fileInput.click(); };
-  fileInput.addEventListener('change', async e=>{
-    const file=e.target.files[0]; if(!file) return;
-    if(!('BarcodeDetector' in window)){ alert("Lecture d'image non supportée. Utilisez la caméra native."); return; }
-    const detector = new BarcodeDetector({ formats:['qr_code'] });
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = async()=>{
-      try{
-        const bmp = await createImageBitmap(img);
-        const res = await detector.detect(bmp);
-        if(res && res.length){
-          try{ SND_PAPER && SND_PAPER.play(); }catch(e){}
-          setTimeout(()=>{ handleScannedURL(res[0].rawValue); }, 120);
-        } else { alert("Aucun QR détecté."); }
-      }catch(err){ alert("Erreur de lecture : "+err.message); }
-      finally{ URL.revokeObjectURL(url); }
-    };
-    img.onerror = ()=>{ alert("Image invalide."); URL.revokeObjectURL(url); };
-    img.src = url;
-  });
 }
 
-window.addEventListener('DOMContentLoaded', render);
+/* -------- Fullscreen Map (11) -------- */
+function openMapFullscreen(){
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  const overlay = document.createElement('div');
+  overlay.className = 'fsOverlay solidBg';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
+  overlay.style.zIndex = 99999;
+  const inner = document.createElement('div'); inner.className = 'fsInner';
+  const img = document.createElement('img'); img.src='assets/carte2025.png'; img.alt='Carte au trésor';
+  const torch = document.createElement('div'); torch.className='torch';
+  torch.style.setProperty('--x','50%'); torch.style.setProperty('--y','50%'); torch.style.setProperty('--r','80px');
+  const close = document.createElement('button'); close.className='fsClose xonly'; close.textContent='✖'; close.setAttribute('aria-label','Fermer la carte');
+  inner.appendChild(img); inner.appendChild(torch); inner.appendChild(close); overlay.appendChild(inner); document.body.appendChild(overlay);
+  const move=(x,y)=>{
+    const rect=inner.getBoundingClientRect();
+    const rx=x-rect.left; const ry=y-rect.top;
+    const r=Math.max(60, Math.min(110, Math.min(rect.width,rect.height)*0.08));
+    torch.style.setProperty('--r',r+'px'); torch.style.setProperty('--x',rx+'px'); torch.style.setProperty('--y',ry+'px');
+  };
+  overlay.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
+  overlay.addEventListener('touchmove', e=>{ const t=e.touches[0]; move(t.clientX,t.clientY); e.preventDefault(); }, {passive:false});
+  const closeAll=()=>{ document.body.removeChild(overlay); document.body.style.overflow = prevOverflow; };
+  close.addEventListener('click', closeAll);
+}
+function showMapButton(){
+  const old = document.getElementById('mapOpenBtn'); if(old) old.remove();
+  const btn = document.createElement('button'); btn.id='mapOpenBtn'; btn.textContent='📜 Ouvrir la carte (plein écran)'; btn.onclick=openMapFullscreen;
+  qs('#story').after(btn);
+}
+
+/* -------- Texts -------- */
+const TEXTS = {
+  1: "« Bien le bonjour, étranger curieux ! Si tu lis ces lignes, c’est que tu t’es aventuré sur mes terres… et que tu comptes bien fouiller dans mes affaires.\nSache que j’ai laissé derrière moi un trésor… ou peut‑être une malédiction… ou les deux.\nIl y a cent ans, j’avais déjà plus de secrets que de dents dans ma bouche — et encore, à l’époque, j’en avais déjà perdu la moitié.\nPour commencer, cherche la pierre qui porte le chiffre gravé de mon année la plus chère. Sous ce regard de granit, tu trouveras le début de ton voyage. »",
+  2: "« Il a nourri plus de ventres que le curé n’a donné de sermons !\nRegarde‑le bien… mais sache qu'à mon époque, c’était pas des fleurs qu’on mettait là‑dedans… et ça parfumait moins, crois‑moi. »",
+  3: "« Ah, ce bon vieux chaudron… Combien de repas, combien de secrets aussi — la doyenne du hameau y perdit même son dentier. Si tu le retrouves, évite de goûter la soupe.\nÀ présent, cherche l’endroit où la vie commence… protégée par une coquille. »",
+  4: "« Mes dames à plumes n’aiment pas les inconnus.\nObserve bien et multiplie les numéros… et ajoute mille.\nLe chiffre final ouvrira ta prochaine porte. »\n\n⤷ Entre le code pour révéler la suite.",
+  5: "« Écoute‑moi bien : là où l’eau danse et chante encore, même par les plus grandes chaleurs, tu trouveras ce que tu cherches.\nIci, les secrets flottent comme les feuilles à l’automne, ainsi que mes caleçons et chaussettes sales.\nTire sur la corde, mais pas trop fort : j’ai déjà perdu deux seaux comme ça. »",
+  6: "« Ah… tu as trouvé ma source secrète, oubliée de beaucoup. À présent, fais l’inverse : cherche un endroit sec… où les calories dorment à l’abri de la pluie. »",
+  7: "« L’odeur du bois sec… presque aussi bonne que celle du pain chaud. Remplis la grille, et observe les lettres qui se tiennent bien droites : elles te révéleront un objet que j’ai toujours gardé près de moi. »",
+  8: "« Voilà ma vieille canne… Elle m’a soutenu dans les champs comme dans les chemins de traverse. »\n\nTexte chiffré III :\nJDPH RI VWRQH\n\n⤷ Écris ci‑dessous la phrase déchiffrée pour valider.",
+  9: "« Assieds‑toi donc sur mon fauteuil minéral… moins confortable qu’un coussin, mais plus durable. Devant tu verras… là où l’on peut prendre de la hauteur, là où le sol devient non palpable. Mais le secret n’est pas dessus. »",
+  10:"« Tu veux monter haut ? Alors trouve la chaleur sans feu, celle qui fait lever sans braise… Cherche à sa gauche un recoin non scellé. Derrière, ton destin t’attend. »",
+  11:"« Ah… le vieux four. Combien de miches, combien de tartes… et combien de secrets a‑t‑il cuits en silence ? Voici ma carte. Touchez le bouton ci‑dessous pour l’explorer à la lampe, en plein écran. »",
+  12:"« Félicitations, tu as trouvé mon précieux !\nÀ mon époque, on disait que j’avais plus de chance que de pain dans le four — ce qui n’est pas peu dire, car j’oubliais souvent d’allumer le feu. Si tu lis ceci, c’est que tu as suivi mes bêtises… et mes ruses.\nMarque ta victoire et ta fierté pour montrer aux autres ! Et surtout, participe : cache ailleurs le QR de l’emplacement du trésor qui était derrière la pierre… et remplace‑le par une énigme manuscrite de ton cru.\nN’oublie pas de laisser le crayon et le bloc‑notes dans le coffre pour que chacun y ajoute une nouvelle énigme. Le secret d’Auguste vivra tant qu’on continuera de le compliquer.\nFIN »"
+};
+
+/* -------- Render -------- */
+function render(){
+  const step = getStepFromURL();
+  const progress = getProgress();
+  const story = qs('#story');
+  const stepNum = qs('#stepNum');
+  if(stepNum) stepNum.textContent = step;
+
+  // Reset UI blocks
+  qs('#codeGate').style.display='none';
+  qs('#crossword').style.display='none';
+  qs('#caesarBox').style.display='none';
+  const mapOpenBtn = document.getElementById('mapOpenBtn'); if(mapOpenBtn) mapOpenBtn.remove();
+
+  // Blocking: if step > progress+1, DO NOT show puzzle text.
+  if(step > progress + 1){
+    story.textContent = "⛔ Ce QR ne peut pas encore être lu. Continue dans l’ordre !";
+    const scanBtn = qs('#scanBtn'); if(scanBtn) scanBtn.disabled = true;
+    return;
+  }
+
+  // Show text for accessible steps
+  story.textContent = TEXTS[step] || TEXTS[1];
+
+  // First visit auto-progress (except gated)
+  const gated = new Set([4,7,8]);
+  if(step === progress + 1 && !gated.has(step)){
+    setProgress(step);
+  }
+
+  // Step-specific widgets
+  if(step===4){
+    const cg = qs('#codeGate'); cg.style.display='block';
+    const input = qs('#codeInput'); if(input){ input.value=''; input.focus(); }
+  }
+  if(step===7){
+    const cw = qs('#crossword'); cw.style.display='block'; buildCrossword(cw);
+  }
+  if(step===8){
+    const cz = qs('#caesarBox'); cz.style.display='block'; setupCaesar();
+  }
+  if(step===11){
+    showMapButton();
+  }
+
+  // Step 12: hide scan buttons
+  if(step===12){
+    const scanBtn = qs('#scanBtn'); const uploadBtn = qs('#uploadBtn');
+    if(scanBtn) scanBtn.style.display='none';
+    if(uploadBtn) uploadBtn.style.display='none';
+  }
+
+  // Info banner if revisiting
+  if(step < progress){
+    const info = document.createElement('div'); info.className='lock';
+    info.style.background='#eef6ea'; info.style.borderColor='#9cc59a'; info.style.color='#2f5530';
+    info.textContent = "Étape déjà validée. Tu peux relire, ou scanner l’étape " + (progress+1) + " pour poursuivre.";
+    story.after(info);
+  }
+}
+
+function validateCode(){
+  const input = qs('#codeInput'); let v=(input.value||'').trim().replace(/\D+/g,'');
+  if(v==='1024'){
+    const p=getProgress();
+    if(p<3) setProgress(3);
+    setProgress(4);
+    playItem();
+    alert("✅ Étape 4 validée. Tu peux scanner la suivante.");
+    const cg = qs('#codeGate'); if(cg) cg.style.display='none';
+  } else { alert('Mauvais code.'); }
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{ render(); setupUploadScan(); });
